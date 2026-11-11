@@ -1,104 +1,136 @@
 import AVFoundation
+import PerihelionAudio
+import QuartzCore
 
-/// A small piece of the web game's synth: the life cues only.
-/// The full score (plucks, drone, whooshes) is still ahead.
+/// Plays `SynthEngine` through `AVAudioEngine`.
+///
+/// The session is `.ambient` with mix-with-others: sound is heard while the ring switch
+/// is set to ring, stays silent when the phone is muted, and does not stop other audio.
+/// The engine is created only after the session is active; building it earlier is a common
+/// reason a game stays silent even with the ringer on.
 @MainActor
 final class Synth {
-    private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
-    private var format: AVAudioFormat?
-    private var attached = false
+    private var engine: AVAudioEngine?
+    private var dsp: SynthEngine
+    private var source: AVAudioSourceNode?
     private var started = false
-    private let muted: Bool
+    private var muted = false
+    private var live = false
+    private var titleMood = true
+    private var flow = 0
+    private var rate = 44100.0
+    private var retryAt = 0.0
 
     init() {
-        let stored = UserDefaults.standard.object(forKey: "perihelion.muted")
-        if let number = stored as? NSNumber {
-            muted = number.boolValue
-        } else if let text = stored as? String {
-            muted = text == "1"
-        } else {
-            muted = false
+        dsp = SynthEngine(sampleRate: 44100)
+    }
+
+    func setMuted(_ muted: Bool) {
+        self.muted = muted
+        dsp.setMuted(muted)
+    }
+
+    func setMood(live: Bool, title: Bool, flow: Int) {
+        self.live = live
+        self.titleMood = title
+        self.flow = flow
+        dsp.setMood(live: live, title: title, flow: flow)
+    }
+
+    func play(_ cue: SynthCue) {
+        ensureRunning()
+        dsp.play(cue)
+    }
+
+    func prepare() {
+        ensureRunning()
+    }
+
+    func resume() {
+        let hardware = AVAudioSession.sharedInstance().sampleRate
+        if started, hardware > 0, abs(hardware - rate) > 1 {
+            tearDown()
+        }
+        ensureRunning()
+    }
+
+    func keepAlive() {
+        guard started, let engine, !engine.isRunning else { return }
+        let now = CACurrentMediaTime()
+        guard now >= retryAt else { return }
+        retryAt = now + 0.5
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+            try engine.start()
+        } catch {
+            tearDown()
+            ensureRunning()
         }
     }
 
-    func lifeRestored() {
-        render(duration: 0.48) { time in
-            let first = Self.tone(frequency: 587.33, time: time, duration: 0.34)
-            let second = Self.tone(frequency: 880, time: time - 0.09, duration: 0.36)
-            return (first + second) * 0.11
-        }
-    }
-
-    func lifeLost() {
-        let duration = 0.26
-        let frames = Int(Self.sampleRate * duration)
-        var phase = 0.0
-        var samples = [Double](repeating: 0, count: frames)
-        for index in 0..<frames {
-            let time = Double(index) / Self.sampleRate
-            let glide = min(max(time / duration, 0), 1)
-            let frequency = 392 * pow(294 / 392, glide)
-            phase += 2 * Double.pi * frequency / Self.sampleRate
-            samples[index] = sin(phase) * Self.envelope(time, duration) * 0.1
-        }
-        let rendered = samples
-        render(duration: duration) { time in
-            guard !rendered.isEmpty else { return 0 }
-            let index = min(max(Int(time * Self.sampleRate), 0), rendered.count - 1)
-            return rendered[index]
-        }
-    }
-
-    private func render(duration: Double, sample: (Double) -> Double) {
-        guard !muted else { return }
-        guard prepare(), let format = format else { return }
-        let frames = Int(Self.sampleRate * duration)
-        guard frames > 0,
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)),
-              let channels = buffer.floatChannelData else { return }
-        buffer.frameLength = AVAudioFrameCount(frames)
-        let samples = channels[0]
-        for index in 0..<frames {
-            samples[index] = Float(sample(Double(index) / Self.sampleRate))
-        }
-        player.scheduleBuffer(buffer, completionHandler: nil)
-    }
-
-    private func prepare() -> Bool {
-        if started { return true }
-        if !attached {
-            guard let format = AVAudioFormat(standardFormatWithSampleRate: Self.sampleRate, channels: 1) else { return false }
-            self.format = format
-            engine.attach(player)
-            engine.connect(player, to: engine.mainMixerNode, format: format)
-            attached = true
+    private func ensureRunning() {
+        if started {
+            keepAlive()
+            return
         }
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.ambient, options: [.mixWithOthers])
+            try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
             try session.setActive(true)
+            let engine = AVAudioEngine()
+            let outputRate = engine.outputNode.outputFormat(forBus: 0).sampleRate
+            let sessionRate = session.sampleRate
+            let rate = outputRate > 8000 ? outputRate : (sessionRate > 8000 ? sessionRate : 44100)
+            try install(on: engine, sampleRate: rate)
+            engine.mainMixerNode.outputVolume = 1
+            self.engine = engine
+            self.rate = rate
             try engine.start()
-            player.play()
             started = true
-            return true
         } catch {
-            started = false
-            return false
+            tearDown()
         }
     }
 
-    private static let sampleRate = 44_100.0
-
-    private static func tone(frequency: Double, time: Double, duration: Double) -> Double {
-        guard time >= 0, time <= duration else { return 0 }
-        return sin(2 * Double.pi * frequency * time) * envelope(time, duration)
+    private func install(on engine: AVAudioEngine, sampleRate: Double) throws {
+        let dsp = SynthEngine(sampleRate: sampleRate)
+        dsp.setMuted(muted, immediate: true)
+        dsp.setMood(live: live, title: titleMood, flow: flow)
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2) else {
+            throw SynthError.noFormat
+        }
+        let node = AVAudioSourceNode(format: format) { @Sendable _, _, frameCount, audioBufferList in
+            Synth.render(dsp, frames: frameCount, list: audioBufferList)
+            return noErr
+        }
+        engine.attach(node)
+        engine.connect(node, to: engine.mainMixerNode, format: format)
+        self.dsp = dsp
+        source = node
     }
 
-    private static func envelope(_ time: Double, _ duration: Double) -> Double {
-        guard time >= 0, time <= duration else { return 0 }
-        let attack = 0.012
-        if time < attack { return time / attack }
-        return exp(-3.2 * (time - attack) / max(duration - attack, 0.001))
+    private nonisolated static func render(
+        _ dsp: SynthEngine, frames: AVAudioFrameCount, list: UnsafeMutablePointer<AudioBufferList>
+    ) {
+        let buffers = UnsafeMutableAudioBufferListPointer(list)
+        guard let first = buffers.first, let left = first.mData?.assumingMemoryBound(to: Float.self) else { return }
+        let count = Int(frames)
+        if buffers.count > 1, let data = buffers[1].mData {
+            dsp.render(left: left, right: data.assumingMemoryBound(to: Float.self), frames: count)
+        } else {
+            dsp.render(left: left, right: left, frames: count)
+        }
     }
+
+    private func tearDown() {
+        engine?.stop()
+        if let engine, let source { engine.detach(source) }
+        engine = nil
+        source = nil
+        started = false
+    }
+}
+
+private enum SynthError: Error {
+    case noFormat
 }

@@ -26,6 +26,13 @@
 	<false/>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.arcade-games</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>IMFeENrm28P.ttf</string>
+		<string>IMFeENit28P.ttf</string>
+		<string>DMMono-Regular.ttf</string>
+		<string>DMMono-Medium.ttf</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

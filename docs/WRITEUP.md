@@ -107,7 +107,9 @@ panel's screenshots can trail the real screen by a second, so `xcrun simctl io s
 
 ## What's next
 
-- Sound through AVAudioEngine: the plucked pentatonic notes, the drone that opens with flow, whooshes and knocks
-- The real fonts (IM Fell English and DM Mono) bundled in the app
-- Game Center for best scores, and a run on a real phone for haptics and ProMotion
+- Game Center for best scores
 - The 3D version later, on the same engine
+
+Sound (the plucked pentatonic, the drone that opens with flow, whooshes, knocks, and a generated reverb) and the
+real fonts (IM Fell English and DM Mono) now live in the app. Haptics use Core Haptics on the same moments the
+soundtrack marks. A real phone is still the place to judge the mix, the Taptic Engine, and ProMotion.

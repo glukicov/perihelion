@@ -1,4 +1,5 @@
 import Observation
+import PerihelionAudio
 import PerihelionCore
 import QuartzCore
 import SwiftUI
@@ -45,19 +46,22 @@ struct Banner: Equatable {
 struct Records {
     private static let hiKey = "perihelion.hi"
     private static let farKey = "perihelion.far"
+    private static let mutedKey = "perihelion.muted"
 
     var hi: Int
     var far: Int
+    var muted: Bool
 
     static func load() -> Records {
         let d = UserDefaults.standard
-        return Records(hi: d.integer(forKey: hiKey), far: d.integer(forKey: farKey))
+        return Records(hi: d.integer(forKey: hiKey), far: d.integer(forKey: farKey), muted: d.string(forKey: mutedKey) == "1")
     }
 
     func save() {
         let d = UserDefaults.standard
         d.set(hi, forKey: Self.hiKey)
         d.set(far, forKey: Self.farKey)
+        d.set(muted ? "1" : "0", forKey: Self.mutedKey)
     }
 }
 
@@ -67,7 +71,7 @@ final class Session {
     private(set) var game: Game
     private(set) var frame = 0
     private(set) var paused = false
-    private(set) var records = Records.load()
+    private(set) var records: Records
     private(set) var newBest = false
     private(set) var banner: Banner?
     private(set) var hint: String?
@@ -113,12 +117,15 @@ final class Session {
     private(set) var viewHeight = 860.0
 
     init() {
+        let saved = Records.load()
+        records = saved
         let settings = RunOptions.load()
         let seed = UInt32.random(in: .min ... .max)
         self.settings = settings
         self.seed = seed
         game = Game(seed: seed, viewHeight: 860, mode: .title, options: settings)
-        coach = records.far < 5
+        coach = saved.far < 5
+        synth.setMuted(saved.muted)
     }
 
     var tint: Tint {
@@ -126,7 +133,8 @@ final class Session {
         return tintFrom.mix(tintTo, e)
     }
 
-    var showsHUD: Bool { game.mode != .title }
+    var showsPlayChrome: Bool { game.mode == .play && !paused }
+    var showsScrim: Bool { paused || game.mode == .dead }
 
     func layout(size: CGSize) {
         guard size.width > 0, size.height > 0 else { return }
@@ -140,6 +148,9 @@ final class Session {
 
     func start() {
         guard link == nil else { return }
+        syncAudio()
+        synth.prepare()
+        haptics.prepare()
         let target = LinkTarget { [weak self] link in self?.onFrame(link) }
         let link = CADisplayLink(target: target, selector: #selector(LinkTarget.fire(_:)))
         link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
@@ -147,13 +158,19 @@ final class Session {
         self.link = link
     }
 
+    func foreground() {
+        synth.resume()
+    }
+
     func touchDown() {
+        synth.prepare()
         guard !paused, !showsSettings else { return }
         switch game.mode {
         case .title:
             game.act()
             reveal = max(reveal, 0)
             openingHint()
+            syncAudio()
         case .play:
             game.act()
             handle(game.drainEvents())
@@ -166,6 +183,17 @@ final class Session {
         guard game.mode == .play, paused != on else { return }
         paused = on
         lastTimestamp = nil
+        syncAudio()
+    }
+
+    func toggleMuted() {
+        records.muted.toggle()
+        records.save()
+        synth.setMuted(records.muted)
+        if !records.muted {
+            synth.prepare()
+            synth.play(.chime)
+        }
     }
 
     func restart() {
@@ -243,7 +271,9 @@ final class Session {
         beatHi = false
         newBest = false
         banner = nil
+        hint = nil
         coach = records.far < 5
+        syncAudio()
         if mode == .play { openingHint() }
     }
 
@@ -253,7 +283,7 @@ final class Session {
 
     private func setHint(_ text: String?, for seconds: Double = .infinity) {
         hint = text
-        hintUntil = clock + seconds
+        hintUntil = text == nil || seconds.isInfinite ? .infinity : CACurrentMediaTime() + seconds
     }
 
     private func onFrame(_ link: CADisplayLink) {
@@ -263,6 +293,8 @@ final class Session {
     }
 
     private func step(real raw: Double) {
+        synth.keepAlive()
+        expireWords()
         guard !paused else { return }
         let real = min(0.05, max(0, raw))
         clock += real
@@ -362,9 +394,12 @@ final class Session {
         } else {
             aimLit = nil
         }
+    }
 
-        if banner != nil && clock > bannerUntil { banner = nil }
-        if hint != nil && clock > hintUntil { hint = nil }
+    private func expireWords() {
+        let now = CACurrentMediaTime()
+        if banner != nil, now > bannerUntil { banner = nil }
+        if hint != nil, now > hintUntil { hint = nil }
     }
 
     private func burst(_ x: Double, _ y: Double, _ count: Int, _ color: Color, _ speed: Double, size: Double = 2.4) {
@@ -393,8 +428,14 @@ final class Session {
         slowFactor = factor
     }
 
+    private func syncAudio() {
+        synth.setMood(live: game.mode == .play && !paused, title: game.mode == .title, flow: game.flow)
+    }
+
     private func handle(_ events: [GameEvent]) {
+        guard !events.isEmpty else { return }
         for event in events { handle(event) }
+        syncAudio()
     }
 
     private func handle(_ event: GameEvent) {
@@ -403,7 +444,10 @@ final class Session {
         switch event {
         case .release(let auto):
             burst(c.x, c.y, 4, flowColor, 60, size: 2)
-            if !auto { haptics.release() }
+            if !auto {
+                synth.play(.release)
+                haptics.release()
+            }
             if !toldRelease {
                 toldRelease = true
                 setHint(nil)
@@ -425,22 +469,29 @@ final class Session {
             }
             if capture.isNew {
                 let top = s.y - s.radius - 14
-                pop(s.x, top, "+" + capture.points.formatted(), color: Palette.comet, size: 15)
+                pop(s.x, top, "+" + Palette.points(capture.points), color: Palette.comet, size: 15)
                 for (k, tag) in capture.tags.enumerated() {
                     pop(s.x, top - 19 * Double(k + 1), tag.label, size: 18, italic: true,
                         delay: 0.07 * Double(k + 1), max: 1.2)
                 }
+                synth.play(.pluck(
+                    step: SynthScale.pluckStep(flow: game.flow, starIndex: capture.star),
+                    bell: capture.deadCentre
+                ))
                 haptics.capture(centre: capture.deadCentre, flow: game.flow)
                 if !beatHi && records.hi > 0 && game.score > records.hi {
                     beatHi = true
                     pop(s.x, top - 19 * Double(capture.tags.count + 1), "New best", color: Palette.comet, size: 18,
                         italic: true, delay: 0.3, max: 1.6)
+                    synth.play(.newBest)
+                    haptics.newBest()
                 }
                 if !toldFlow {
                     toldFlow = true
                     setHint("Leave on the first lap for flow", for: 4.5)
                 }
             } else {
+                synth.play(.recapture)
                 haptics.recapture()
                 if capture.flowLost { flowLost() }
             }
@@ -451,9 +502,11 @@ final class Session {
         case .knock:
             shake = max(shake, 4)
             burst(c.x, c.y, 5, Palette.chalk, 70, size: 2)
+            synth.play(.knock)
             haptics.knock()
 
-        case .fuse:
+        case .fuse(let left):
+            synth.play(.fuse(left: left))
             haptics.fuse()
 
         case .supernova(let index):
@@ -466,22 +519,28 @@ final class Session {
             flash = 0.55
             flashColor = Palette.ember
             pop(s.x, s.y - 24, s.name + " burned out", color: Palette.ember, size: 17, italic: true, max: 1.4)
+            synth.play(.supernova)
             haptics.supernova()
 
         case .plate(let plate):
             let info = plate < Catalog.plates.count ? Catalog.plates[plate] : Catalog.offChart
             banner = Banner(name: info.name, rule: info.rule)
-            bannerUntil = clock + 2.8
+            bannerUntil = CACurrentMediaTime() + 2.8
             tintFrom = tint
             tintTo = Palette.tints[plate % Palette.tints.count]
             tintT = 0
+            synth.play(.plate)
+            haptics.plate()
 
         case .died(let death):
-            if case .nebula = death {
+            let inNebula: Bool
+            if case .nebula = death { inNebula = true } else { inNebula = false }
+            if inNebula {
                 ripples.append(Ripple(x: c.x, y: c.y, radius: 4, grow: 46, max: 0.5, color: Palette.chalk, width: 1.5))
                 burst(c.x, c.y, 14, Palette.chalk, 110)
             }
             shake = max(shake, 7)
+            synth.play(.died(inNebula: inNebula))
             finish()
 
         case .lifeLost:
@@ -496,7 +555,7 @@ final class Session {
             setHint("Back to \(name). \(hearts).", for: 2.8)
             slowmo(0.12, 0.35)
             haptics.lifeLost()
-            synth.lifeLost()
+            synth.play(.flowLost)
 
         case .lifeGained:
             heartPulse = 1
@@ -510,13 +569,15 @@ final class Session {
                     max: 1.4)
             }
             haptics.lifeRestored()
-            synth.lifeRestored()
+            synth.play(.chime)
         }
     }
 
     private func flowLost() {
         let c = game.comet
         pop(c.x, c.y - 22, "Flow lost", color: Palette.ember, size: 16, italic: true)
+        synth.play(.flowLost)
+        haptics.flowLost()
     }
 
     private func finish() {
