@@ -36,11 +36,25 @@ enum Palette {
         Tint(ground: RGB(r: 22, g: 28, b: 52), ink: RGB(r: 8, g: 11, b: 26)),
     ]
 
-    static func display(_ size: Double) -> Font {
-        .custom("IowanOldStyle-Italic", size: size)
+    /// PostScript names of the bundled faces. IM Fell is the chart's display face
+    /// (italic for titles and star names, roman for the lede and the key). DM Mono is the data face.
+    static let displayItalicName = "IM_FELL_English_Italic"
+    static let displayRomanName = "IM_FELL_English_Roman"
+    static let monoRegularName = "DMMono-Regular"
+    static let monoMediumName = "DMMono-Medium"
+
+    static let scrim = Color(red: 4 / 255, green: 9 / 255, blue: 20 / 255)
+    static let veil = Color(red: 2 / 255, green: 6 / 255, blue: 18 / 255)
+
+    static func display(_ size: Double, italic: Bool = true) -> Font {
+        .custom(italic ? displayItalicName : displayRomanName, size: size)
     }
 
     static func mono(_ size: Double, weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .monospaced)
+        .custom(weight == .regular ? monoRegularName : monoMediumName, size: size)
+    }
+
+    static func points(_ value: Int) -> String {
+        value.formatted(.number.locale(Locale(identifier: "en_GB")))
     }
 }
