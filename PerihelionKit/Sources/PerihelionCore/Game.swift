@@ -15,6 +15,9 @@ public struct Game: Sendable {
     public private(set) var plate = 0
     public private(set) var stats = Stats()
     public private(set) var cause = ""
+    public private(set) var lives: Int
+    public private(set) var maxLives: Int
+    public private(set) var options: RunOptions
     public private(set) var events: [GameEvent] = []
     public var viewHeight: Double {
         didSet { if mode == .title { cameraY = titleCamera; cameraTarget = cameraY } }
@@ -24,10 +27,13 @@ public struct Game: Sendable {
     private var nebulaCount = 0
     private var lastCharted = 0
 
-    public init(seed: UInt32, viewHeight: Double, mode: Mode = .play) {
+    public init(seed: UInt32, viewHeight: Double, mode: Mode = .play, options: RunOptions = .standard) {
         self.rng = Mulberry32(seed: seed)
         self.viewHeight = viewHeight
         self.mode = mode
+        self.options = options
+        self.lives = options.startingLives
+        self.maxLives = options.startingLives
         self.comet = Comet(x: 0, y: 0, orbitRadius: 0)
         let sol = makeStar(0, previous: nil)
         stars.append(sol)
@@ -97,8 +103,15 @@ public struct Game: Sendable {
             kind = r < 0.25 ? .red : r < 0.6 ? .blue : .white
         }
         let w = Tuning.width
-        let radius = i == 0 ? 62 : max(40, 60 - Double(i) * 0.45) * kind.radiusScale
-        let spin = (2.3 + Double(min(i, 40)) * 0.026) * kind.spinScale
+        var radius = i == 0 ? 62 : max(40, 60 - Double(i) * 0.45) * kind.radiusScale
+        var spin = (2.3 + Double(min(i, 40)) * 0.026) * kind.spinScale
+        let chartedFuse = i == 0
+            ? Double.infinity
+            : max(max(3.2, 7.5 - Double(i) * 0.1) * kind.fuseScale, 1.7 * Tuning.tau / spin)
+        if options.difficulty != 1 {
+            radius /= options.difficulty
+            spin *= options.difficulty
+        }
         var x = w / 2
         var y = 0.0
         if let prev {
@@ -117,9 +130,7 @@ public struct Game: Sendable {
             amp = min(18 + rng.next() * 27, x - radius - 12, w - radius - 12 - x)
             if amp < 8 { amp = 0 }
         }
-        let fuse = i == 0
-            ? Double.infinity
-            : max(max(3.2, 7.5 - Double(i) * 0.1) * kind.fuseScale, 1.7 * Tuning.tau / spin)
+        let fuse = options.difficulty == 1 || chartedFuse.isInfinite ? chartedFuse : chartedFuse / options.difficulty
         let sub = bayer.isEmpty ? "" : bayer + " · " + cls
         let labelWidth = max(Double(name.utf16.count) * 7.6, Double(sub.utf16.count) * 5.8) + 8
         let roomRight = w - 4 - (x + amp + radius + 11)
@@ -173,16 +184,48 @@ public struct Game: Sendable {
             last = s
         }
         let floor = cameraY + viewHeight * (1 - Tuning.anchor) + 500
-        while stars.count > 4 && stars[0].y > floor && stars[0].index != comet.star {
+        while stars.count > 4 && stars[0].y > floor && stars[0].index != comet.star && !anchors(stars[0].index) {
             stars.removeFirst()
         }
         if let first = nebulae.first, first.y > floor { nebulae.removeFirst() }
         if let first = links.first, first.toY > floor { links.removeFirst() }
     }
 
+    /// A multi-life run keeps the furthest star on the chart, so a miss can return there.
+    private func anchors(_ index: Int) -> Bool {
+        maxLives > 1 && index == reached
+    }
+
+    public mutating func apply(_ update: RunOptions) {
+        if update.startingLives != maxLives {
+            lives = update.startingLives
+        }
+        maxLives = update.startingLives
+        let previous = options.difficulty
+        options = update
+        guard previous != update.difficulty, previous > 0 else { return }
+        let radiusScale = previous / update.difficulty
+        let spinScale = update.difficulty / previous
+        for i in stars.indices {
+            stars[i].radius *= radiusScale
+            stars[i].spin *= spinScale
+            if stars[i].fuse.isFinite {
+                stars[i].fuse *= radiusScale
+                stars[i].fuseTotal *= radiusScale
+            }
+        }
+        guard comet.star != nil else { return }
+        comet.orbitRadius *= radiusScale
+        if let index = comet.star, let s = star(index) {
+            comet.x = s.x + cos(comet.angle) * comet.orbitRadius
+            comet.y = s.y + sin(comet.angle) * comet.orbitRadius
+        }
+    }
+
     private mutating func release(auto: Bool) {
         guard let index = comet.star else { return }
-        let speed = 460 + Double(min(reached, 40)) * 4
+        var speed = 460 + Double(min(reached, 40)) * 4
+        if options.difficulty != 1 { speed *= options.difficulty }
         comet.vx = -sin(comet.angle) * comet.direction * speed
         comet.vy = cos(comet.angle) * comet.direction * speed
         comet.swift = index == 0 || comet.lapOpen
@@ -266,6 +309,46 @@ public struct Game: Sendable {
             star: s.index, isNew: isNew, points: points, tags: tags, deadCentre: centre, flowLost: lost
         )))
         if let newPlate { events.append(.plate(newPlate)) }
+        if isNew && reached > 0 && reached.isMultiple(of: Tuning.lifeMilestone) && lives < maxLives {
+            lives += 1
+            events.append(.lifeGained)
+        }
+    }
+
+    private mutating func fail(_ death: Death) {
+        guard lives > 1 else {
+            lives = 0
+            die(death)
+            return
+        }
+        lives -= 1
+        events.append(.lifeLost(death))
+        restoreCheckpoint()
+    }
+
+    private func checkpointIndex() -> Int? {
+        if star(reached) != nil { return reached }
+        return stars.map(\.index).filter { $0 <= reached }.max()
+    }
+
+    private mutating func restoreCheckpoint() {
+        guard let index = checkpointIndex() else {
+            lives = 0
+            die(.lost)
+            return
+        }
+        let k = slot(index)
+        if stars[k].dead {
+            stars[k].dead = false
+            let lap = 1.7 * Tuning.tau / max(stars[k].spin, 0.01)
+            let half = stars[k].fuseTotal.isFinite ? stars[k].fuseTotal * 0.5 : lap
+            stars[k].fuse = max(half, lap)
+        }
+        let s = stars[k]
+        flow = 0
+        comet = Comet(x: s.x, y: s.y - s.radius, star: s.index, orbitRadius: s.radius)
+        cameraTarget = s.y
+        cameraY = s.y
     }
 
     private mutating func die(_ death: Death) {
@@ -337,7 +420,7 @@ public struct Game: Sendable {
             }
         }
         for b in nebulae where hypot(comet.x - b.x, comet.y - b.y) < b.radius {
-            die(.nebula(b.name))
+            fail(.nebula(b.name))
             return
         }
         for k in stars.indices {
@@ -350,8 +433,8 @@ public struct Game: Sendable {
             }
         }
         cameraTarget = min(cameraTarget, comet.y)
-        if comet.y > cameraY + viewHeight * (1 - Tuning.anchor) + 30 || comet.flown > Tuning.range {
-            die(.lost)
+        if comet.y > cameraY + viewHeight * (1 - Tuning.anchor) + 30 || comet.flown > options.cometRange {
+            fail(.lost)
         }
     }
 
@@ -364,7 +447,7 @@ public struct Game: Sendable {
         var from: Int? = index
         let w = Tuning.width
         var d = 0.0
-        while d < Tuning.range {
+        while d < options.cometRange {
             x += dx * 3
             y += dy * 3
             if x < Tuning.wall {

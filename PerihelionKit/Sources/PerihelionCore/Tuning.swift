@@ -13,6 +13,14 @@ public enum Tuning {
     public static let centre = 0.22
     public static let cameraRate = 4.5
     public static let tau = Double.pi * 2
+    /// Ring, spin, fuse and launch speed. 1 is the chart the web game plays.
+    public static let difficultyMin = 0.7
+    public static let difficultyMax = 1.35
+    /// How far a released comet flies before it is lost. The charted reach is `range`.
+    public static let cometRangeMin = 320.0
+    public static let cometRangeMax = 900.0
+    public static let lifeMilestone = 4
+    public static let maxStartingLives = 9
 }
 
 public enum StarKind: String, Sendable, Codable {

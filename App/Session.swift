@@ -75,6 +75,9 @@ final class Session {
     private(set) var newBest = false
     private(set) var banner: Banner?
     private(set) var hint: String?
+    private(set) var settings: RunOptions
+    private(set) var showsSettings = false
+    private(set) var heartPulse = 0.0
 
     private(set) var clock = 0.0
     private(set) var zoom = 1.0
@@ -108,6 +111,7 @@ final class Session {
     @ObservationIgnored private var lastTimestamp: CFTimeInterval?
     @ObservationIgnored private let haptics = Haptics()
     @ObservationIgnored private let synth = Synth()
+    @ObservationIgnored private var seed: UInt32
     @ObservationIgnored let calm = UIAccessibility.isReduceMotionEnabled
 
     private(set) var viewHeight = 860.0
@@ -115,7 +119,11 @@ final class Session {
     init() {
         let saved = Records.load()
         records = saved
-        game = Game(seed: UInt32.random(in: .min ... .max), viewHeight: 860, mode: .title)
+        let settings = RunOptions.load()
+        let seed = UInt32.random(in: .min ... .max)
+        self.settings = settings
+        self.seed = seed
+        game = Game(seed: seed, viewHeight: 860, mode: .title, options: settings)
         coach = saved.far < 5
         synth.setMuted(saved.muted)
     }
@@ -156,7 +164,7 @@ final class Session {
 
     func touchDown() {
         synth.prepare()
-        guard !paused else { return }
+        guard !paused, !showsSettings else { return }
         switch game.mode {
         case .title:
             game.act()
@@ -190,11 +198,58 @@ final class Session {
 
     func restart() {
         paused = false
+        showsSettings = false
         newGame(mode: .play)
     }
 
+    func openSettings() {
+        showsSettings = true
+    }
+
+    func closeSettings() {
+        showsSettings = false
+        guard game.mode == .title, game.options.difficulty != settings.difficulty else { return }
+        game = Game(seed: seed, viewHeight: viewHeight, mode: .title, options: settings)
+        trail = []
+        sparks = []
+        ripples = []
+        pops = []
+    }
+
+    func setDifficulty(_ value: Double) {
+        store(RunOptions(startingLives: settings.startingLives, difficulty: value, cometRange: settings.cometRange))
+    }
+
+    func setCometRange(_ value: Double) {
+        store(RunOptions(startingLives: settings.startingLives, difficulty: settings.difficulty, cometRange: value))
+        syncLive()
+    }
+
+    func setStartingLives(_ value: Int) {
+        store(RunOptions(startingLives: value, difficulty: settings.difficulty, cometRange: settings.cometRange))
+        syncLive()
+    }
+
+    private func store(_ next: RunOptions) {
+        settings = next
+        settings.save()
+    }
+
+    /// Lives and reach take effect on this run. Difficulty waits for the next chart,
+    /// so a slider drag does not rewrite the stars already on screen.
+    private func syncLive() {
+        guard game.mode != .dead else { return }
+        game.apply(RunOptions(
+            startingLives: settings.startingLives,
+            difficulty: game.options.difficulty,
+            cometRange: settings.cometRange
+        ))
+    }
+
     private func newGame(mode: Mode) {
-        game = Game(seed: UInt32.random(in: .min ... .max), viewHeight: viewHeight, mode: mode)
+        seed = UInt32.random(in: .min ... .max)
+        showsSettings = false
+        game = Game(seed: seed, viewHeight: viewHeight, mode: mode, options: settings)
         accumulator = 0
         slow = 0
         zoom = 1
@@ -212,6 +267,7 @@ final class Session {
         tintTo = Palette.tints[0]
         tintT = 1
         reveal = mode == .title ? 0 : 1
+        heartPulse = 0
         beatHi = false
         newBest = false
         banner = nil
@@ -289,6 +345,10 @@ final class Session {
         shake *= exp(-dt * 9)
         flash *= exp(-dt * 6)
         if tintT < 1 { tintT = min(1, tintT + dt / 1.4) }
+        if heartPulse > 0 {
+            heartPulse *= exp(-dt * 5)
+            if heartPulse < 0.02 { heartPulse = 0 }
+        }
         for (key, value) in starPop {
             let next = value * exp(-dt * 8)
             starPop[key] = next > 0.001 ? next : nil
@@ -482,6 +542,34 @@ final class Session {
             shake = max(shake, 7)
             synth.play(.died(inNebula: inNebula))
             finish()
+
+        case .lifeLost:
+            trail = []
+            shake = max(shake, 8)
+            flash = 0.34
+            flashColor = Palette.ember
+            burst(c.x, c.y, 16, Palette.ember, 130)
+            pop(c.x, c.y - 28, "Life lost", color: Palette.ember, size: 18, italic: true, max: 1.3)
+            let name = game.orbiting?.name ?? Catalog.starName(game.reached)
+            let hearts = game.lives == 1 ? "1 heart left" : "\(game.lives) hearts left"
+            setHint("Back to \(name). \(hearts).", for: 2.8)
+            slowmo(0.12, 0.35)
+            haptics.lifeLost()
+            synth.play(.flowLost)
+
+        case .lifeGained:
+            heartPulse = 1
+            flash = max(flash, 0.28)
+            flashColor = Palette.comet
+            if let star = game.orbiting {
+                ripples.append(Ripple(
+                    x: star.x, y: star.y, radius: star.radius, grow: 46, max: 0.6, color: Palette.comet, width: 2
+                ))
+                pop(star.x, star.y + star.radius + 20, "Life restored", color: Palette.comet, size: 18, italic: true,
+                    max: 1.4)
+            }
+            haptics.lifeRestored()
+            synth.play(.chime)
         }
     }
 

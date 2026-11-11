@@ -14,7 +14,9 @@ Each is a single self-contained HTML file: open it in a browser, click or press 
 - **Decided:** port the 2D game first; the 3D game can follow later on the same engine.
 - **Done:** milestone one, the rules engine in `PerihelionKit/Sources/PerihelionCore`, verified by replay tests against the web rules (see `docs/WRITEUP.md`).
 - **Done:** milestone two, a playable iPhone app in `App/` (SwiftUI `Canvas` driven by `CADisplayLink`, haptics, pause, records, app icon). Play-tested in the iPhone 17 simulator, including a debug autoplayer (`just autoplay`).
-- **Next:** Game Center. Sound (AVAudioEngine, the WebAudio synth including generated reverb), IM Fell English, DM Mono, and the rest of the 2D presentation are in the app.
+- **Done:** sound (AVAudioEngine, the WebAudio synth including generated reverb), IM Fell English, DM Mono, and the rest of the 2D presentation.
+- **Done:** version 0.3.0, lives and a chart-adjustments panel. Default 3 lives, a heart back every 4 stars, difficulty and comet reach sliders saved in UserDefaults. The engine's classic one-life chart is what the replay fixtures still play. A life spent plays the flow-lost tone; a heart restored plays the chime.
+- **Next:** Game Center, and testing on a real phone.
 
 ## App structure
 

@@ -45,7 +45,8 @@ iPhone app on top of it.
   flight. Found by an autoplayer that trusted it and kept dying.
 - 📱 **The iPhone app is playable:** SwiftUI `Canvas` at up to 120 Hz, the full cyanotype chart, plates, nebulae,
   flow, slow motion on catches, haptics, the synthesized soundtrack, IM Fell English and DM Mono, pause and saved
-  records. Game Center is next.
+  records. Version 0.3.0 adds lives (3 by default), a heart back every four stars, and sliders for difficulty and
+  how far the comet flies. Game Center is next.
 
 **The long version is [`docs/WRITEUP.md`](docs/WRITEUP.md)**, and the full rules are in [`docs/RULES.md`](docs/RULES.md).
 

@@ -89,6 +89,8 @@ func describe(_ event: GameEvent) -> String {
     case .supernova: "supernova"
     case .plate: "plate"
     case .died: "die"
+    case .lifeLost: "lifelost"
+    case .lifeGained: "lifegained"
     }
 }
 
@@ -120,6 +122,8 @@ func mismatch(_ expected: Fixture.Event, _ got: Observed) -> String? {
     case .died(let death):
         let kind = death == .lost ? "lost" : "blot"
         if kind != expected.kind { return "\(place): death \(death)" }
+    case .lifeLost, .lifeGained:
+        return "\(place): a lives event escaped into a classic replay"
     case .flowLost, .knock:
         break
     }
@@ -139,7 +143,8 @@ struct ReplayTests {
     func replayMatchesWebRules(name: String) throws {
         let fixture = try Fixture.load(name)
         var game = Game(
-            seed: fixture.seed, viewHeight: fixture.viewHeight, mode: fixture.mode == "title" ? .title : .play
+            seed: fixture.seed, viewHeight: fixture.viewHeight, mode: fixture.mode == "title" ? .title : .play,
+            options: .classic
         )
         let taps = Set(fixture.taps)
         var checkpoints = fixture.checkpoints.makeIterator()

@@ -147,4 +147,12 @@ final class Haptics {
     private func unit(_ value: Double) -> Float {
         Float(min(1, max(0, value)))
     }
+
+    func lifeLost() {
+        notice.notificationOccurred(.warning)
+    }
+
+    func lifeRestored() {
+        notice.notificationOccurred(.success)
+    }
 }
