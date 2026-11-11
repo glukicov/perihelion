@@ -1,0 +1,39 @@
+name: Perihelion
+options:
+  bundleIdPrefix: io.github.glukicov
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+packages:
+  PerihelionKit:
+    path: PerihelionKit
+targets:
+  Perihelion:
+    type: application
+    platform: iOS
+    sources:
+      - App
+    dependencies:
+      - package: PerihelionKit
+        product: PerihelionCore
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Perihelion
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        CADisableMinimumFrameDurationOnPhone: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.glukicov.perihelion
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_STYLE: Automatic

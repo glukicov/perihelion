@@ -13,9 +13,13 @@
 
 **[Play](#play) · [Results](#results) · [What we learned](#what-we-learned) · [Quickstart](#quickstart) · [Layout](#layout) · [Rules](docs/RULES.md) · [Write-up](docs/WRITEUP.md)**
 
-<img src="docs/images/2d-play.jpg" width="260" alt="Perihelion 2D: a comet banks off the wall into Rigel at flow x8" />
-&nbsp;&nbsp;
-<img src="docs/images/3d-play.jpg" width="260" alt="Perihelion 3D: the same chart as a floating strip of glowing stars" />
+<img src="docs/images/ios-plate3.jpg" width="230" alt="The iPhone app on plate III: a bank shot into Regulus at flow x8, past two dark nebulae" />
+&nbsp;
+<img src="docs/images/ios-plate4.jpg" width="230" alt="The iPhone app reaching plate IV, with its banner and burgundy palette" />
+&nbsp;
+<img src="docs/images/2d-play.jpg" width="230" alt="The original web version: a comet banks off the wall into Rigel at flow x8" />
+
+<sub>The iPhone app on plates III and IV, and the original web version on the right.</sub>
 
 </div>
 
@@ -24,8 +28,9 @@ one before this one burns out. The stars come in order of real apparent brightne
 Hamal, drawn as a cyanotype star chart. It started as a single HTML file built in a chat over two evenings; this
 repo turns it into a native iPhone game.
 
-The first milestone is the unglamorous one: a pure Swift rules engine that provably plays the *same* game as the web
-version, tick for tick. Proving that turned out to be more interesting than porting it.
+The first milestone was the unglamorous one: a pure Swift rules engine that provably plays the *same* game as the
+web version, tick for tick. Proving that turned out to be more interesting than porting it. The second is a playable
+iPhone app on top of it.
 
 **TL;DR**
 
@@ -38,7 +43,8 @@ version, tick for tick. Proving that turned out to be more interesting than port
   `hypot`, `sin` and friends, amplified by every capture.
 - 🎯 **The aim line fibs after a wall bounce**, by a few units, because it folds at the walls differently from the real
   flight. Found by an autoplayer that trusted it and kept dying.
-- 📱 **The iPhone app itself is next:** renderer, sound, haptics, Game Center.
+- 📱 **The iPhone app is playable:** SwiftUI `Canvas` at up to 120 Hz, the full cyanotype chart, plates, nebulae,
+  flow, slow motion on catches, haptics, pause and saved records. Sound and Game Center are next.
 
 **The long version is [`docs/WRITEUP.md`](docs/WRITEUP.md)**, and the full rules are in [`docs/RULES.md`](docs/RULES.md).
 
@@ -84,10 +90,12 @@ and cause of death.
 
 ## Quickstart
 
-You need macOS with Xcode 16 or later (Swift 6), plus [just](https://github.com/casey/just) and Node 22 if you want to
-regenerate the fixtures.
+You need macOS with Xcode 16 or later (Swift 6), plus [just](https://github.com/casey/just). Node 22 is only needed to
+regenerate the fixtures, and [XcodeGen](https://github.com/yonaskolb/XcodeGen) only if you change `project.yml`.
 
 ```bash
+just sim           # build the iPhone app and run it in the iPhone 17 simulator
+just autoplay      # the same, with a debug autoplayer that lets go when the aim line meets the next star
 just test          # replay the nine web runs against the Swift engine
 just play          # open the 2D web version (just play 3d for the 3D one)
 just fixtures      # re-record the reference runs from web/perihelion-2d.html
@@ -97,6 +105,8 @@ just screenshots   # re-take the README screenshots with headless Chrome
 ## Layout
 
 ```
+App/                           the iPhone app: Session (frame clock, effects, events), ChartRenderer, screens, haptics
+project.yml                    XcodeGen spec for Perihelion.xcodeproj
 PerihelionKit/                 Swift package
   Sources/PerihelionCore/      rules engine: Game, stars, nebulae, events, Mulberry32
   Tests/PerihelionCoreTests/   replay tests and the nine JSON fixtures
@@ -107,13 +117,15 @@ web/
 tools/
   reference.mjs                runs the web rules in JavaScriptCore and V8, writes fixtures
   screenshots.mjs              README screenshots via the Chrome DevTools protocol
+  icon.swift                   draws the app icon with Core Graphics
 docs/
   RULES.md                     every rule and constant
   WRITEUP.md                   the long version of this README
 ```
 
 > [!IMPORTANT]
-> **Caveats.** This is the engine, not the game yet: there is no iPhone app in the repo so far. The fixtures were
+> **Caveats.** The iPhone app is a first playable version: no sound yet, system fonts standing in for IM Fell English
+> and DM Mono, and so far tested in the iOS simulator rather than on a real phone. The fixtures were
 > recorded with the JavaScriptCore and libm in macOS 27, and the "V8" comparison used Node 22, not a Chrome build.
 > Exact replays rely on Apple's libm staying put; a future OS update could, in principle, nudge a last bit and break a
 > long fixture without anything being wrong with the game. The engine's camera steps per tick rather than per frame,

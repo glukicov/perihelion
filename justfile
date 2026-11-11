@@ -7,6 +7,22 @@ test:
 build:
     swift build --package-path PerihelionKit
 
+project:
+    xcodegen generate
+
+app device="iPhone 17":
+    xcodebuild -project Perihelion.xcodeproj -scheme Perihelion -destination 'platform=iOS Simulator,name={{device}}' -derivedDataPath .build/xcode build
+
+sim device="iPhone 17": (app device)
+    xcrun simctl boot "{{device}}" || true
+    open -a Simulator
+    xcrun simctl install "{{device}}" .build/xcode/Build/Products/Debug-iphonesimulator/Perihelion.app
+    xcrun simctl launch "{{device}}" io.github.glukicov.perihelion
+
+autoplay device="iPhone 17": (app device)
+    xcrun simctl install "{{device}}" .build/xcode/Build/Products/Debug-iphonesimulator/Perihelion.app
+    xcrun simctl launch --terminate-running-process "{{device}}" io.github.glukicov.perihelion -PerihelionAutoplay YES
+
 fixtures:
     node tools/reference.mjs
 

@@ -25,3 +25,15 @@ jobs:
 
       - name: Test
         run: swift test --package-path PerihelionKit
+
+  app:
+    name: iPhone app builds
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build for the simulator
+        run: >
+          xcodebuild -project Perihelion.xcodeproj -scheme Perihelion
+          -destination 'generic/platform=iOS Simulator' -derivedDataPath .build/xcode
+          CODE_SIGNING_ALLOWED=NO build

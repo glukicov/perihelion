@@ -13,7 +13,16 @@ Each is a single self-contained HTML file: open it in a browser, click or press 
 
 - **Decided:** port the 2D game first; the 3D game can follow later on the same engine.
 - **Done:** milestone one, the rules engine in `PerihelionKit/Sources/PerihelionCore`, verified by replay tests against the web rules (see `docs/WRITEUP.md`).
-- **Next:** the iPhone app: a 2D renderer (SpriteKit or SwiftUI `Canvas` in a `TimelineView`), presentation layer, sound, haptics.
+- **Done:** milestone two, a playable iPhone app in `App/` (SwiftUI `Canvas` driven by `CADisplayLink`, haptics, pause, records, app icon). Play-tested in the iPhone 17 simulator, including a debug autoplayer (`just autoplay`).
+- **Next:** sound (AVAudioEngine, port of the WebAudio synth), bundling IM Fell English and DM Mono (currently Iowan Old Style and system monospace), Game Center, testing on a real phone.
+
+## App structure
+
+- `project.yml` is the source of truth for `Perihelion.xcodeproj` (regenerate with `just project`, which runs XcodeGen; commit both).
+- `App/Session.swift`: the frame clock (real time with slow motion into fixed engine ticks), effects state and the event handlers, ported from the web `frame`, `animate` and `emit`.
+- `App/ChartRenderer.swift`: the port of the web `draw()` onto `GraphicsContext`, in chart units under one world transform.
+- `App/GameView.swift`: canvas, touch-down input, HUD, title, banner, hint, game over and pause.
+- The simulator panel's screenshots can lag; verify with `xcrun simctl io <udid> screenshot`.
 
 ## Rules
 

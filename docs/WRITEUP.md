@@ -93,9 +93,21 @@ eases once per rendered frame using the real frame time and the window height. T
 dependent. The Swift engine eases the camera once per tick at a fixed view height, so a run is the same at 60 Hz,
 120 Hz or in a test. The reference harness does the same, which is why the replays can match at all.
 
+## Milestone two: the iPhone app
+
+The app in `App/` is a thin layer over the engine. A `CADisplayLink` asks for up to 120 Hz and feeds real time into
+fixed engine ticks, slowed to ×0.3 for a moment after each catch, exactly as the web frame loop does. Effects
+(sparks, ripples, pop-up tags, shake, flash, haptics) only listen to engine events, and the chart is drawn with
+SwiftUI `Canvas` in chart units under one transform, so the drawing code reads almost line for line like the web
+`draw()`.
+
+Two small lessons from the simulator. A paper-grain texture built from a raw pixel buffer turned the whole chart a
+pale grey-blue, while the same pixels written through a Core Graphics context looked right; and the simulator
+panel's screenshots can trail the real screen by a second, so `xcrun simctl io screenshot` is the source of truth.
+
 ## What's next
 
-- The iPhone app: a 2D renderer (SpriteKit or SwiftUI `Canvas`), safe areas and 120 Hz ProMotion
-- Sound through AVAudioEngine, Core Haptics on catch, dead centre and supernova
-- Game Center for best scores, and pausing when the app goes to the background
+- Sound through AVAudioEngine: the plucked pentatonic notes, the drone that opens with flow, whooshes and knocks
+- The real fonts (IM Fell English and DM Mono) bundled in the app
+- Game Center for best scores, and a run on a real phone for haptics and ProMotion
 - The 3D version later, on the same engine
