@@ -23,6 +23,8 @@ Each is a single self-contained HTML file: open it in a browser, click or press 
 - `App/ChartRenderer.swift`: the port of the web `draw()` onto `GraphicsContext`, in chart units under one world transform.
 - `App/GameView.swift`: canvas, touch-down input, HUD, title, banner, hint, game over and pause.
 - The simulator panel's screenshots can lag; verify with `xcrun simctl io <udid> screenshot`.
+- Signing: `Config/Base.xcconfig` optionally includes `Config/Local.xcconfig` (git-ignored) for `DEVELOPMENT_TEAM`. Never put a team ID in `project.yml`, the project file or any committed file, and don't set the team in Xcode's Signing tab (it writes into the committed project).
+- Real devices and TestFlight: `docs/DEVICES.md`; recipes `just teams`, `just phones`, `just device NAME`, `just archive`, `just testflight`. As of 11 Nov 2026 Xcode had no Apple account signed in and the Developer Program membership was undecided.
 
 ## Rules
 

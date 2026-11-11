@@ -6,3 +6,4 @@ xcuserdata/
 *.xcuserstate
 node_modules/
 .playtest/
+Config/Local.xcconfig

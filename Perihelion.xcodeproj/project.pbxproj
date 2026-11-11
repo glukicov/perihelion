@@ -15,9 +15,12 @@
 		C191D8E1F46C608B0CA7D251 /* ChartRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D5023B26C792EFEA063F375 /* ChartRenderer.swift */; };
 		CCF135F5B2F38D7BC3454F39 /* PerihelionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E92EB800DECB24D612D63D33 /* PerihelionApp.swift */; };
 		CE11008FFBC6A16978BBCEF9 /* PerihelionCore in Frameworks */ = {isa = PBXBuildFile; productRef = 65BEE6E84B6E2AF9F0A91511 /* PerihelionCore */; };
+		F5F2BB1B7DE5C5DB0082173A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 127A44F2FD3206BCAB9714CF /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		127A44F2FD3206BCAB9714CF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		1633D8B8613F9A6F535B4805 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		2ADE756A0C4FE2D807BD1A36 /* PerihelionKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PerihelionKit; path = PerihelionKit; sourceTree = SOURCE_ROOT; };
 		2E5EA069BE88978A7FC93AC0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		39814AC14B5B4E5FDB5CB9FD /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
@@ -52,6 +55,7 @@
 				5855AA7469DBB77BC9748BE6 /* Info.plist */,
 				FFD055F855B50435FA219598 /* Palette.swift */,
 				E92EB800DECB24D612D63D33 /* PerihelionApp.swift */,
+				127A44F2FD3206BCAB9714CF /* PrivacyInfo.xcprivacy */,
 				39814AC14B5B4E5FDB5CB9FD /* Session.swift */,
 			);
 			path = App;
@@ -61,9 +65,18 @@
 			isa = PBXGroup;
 			children = (
 				0D453C9BDFBE1D2F625F00F5 /* App */,
+				74184B43BA868338059D1971 /* Config */,
 				F7A44314571766704990FDB2 /* Packages */,
 				821FAE50FC8B553A6F08D466 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		74184B43BA868338059D1971 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				1633D8B8613F9A6F535B4805 /* Base.xcconfig */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 		821FAE50FC8B553A6F08D466 /* Products */ = {
@@ -115,6 +128,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					82FB49A97CC909C2EA4FABDD = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -147,6 +161,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B5CCA377DCF7D855E8EA3B9A /* Assets.xcassets in Resources */,
+				F5F2BB1B7DE5C5DB0082173A /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -234,10 +249,10 @@
 		};
 		5AD514C5094095D360E90A0E /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1633D8B8613F9A6F535B4805 /* Base.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -254,10 +269,10 @@
 		};
 		5EAC122C4629BC2A8AD21F43 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1633D8B8613F9A6F535B4805 /* Base.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

@@ -96,6 +96,7 @@ regenerate the fixtures, and [XcodeGen](https://github.com/yonaskolb/XcodeGen) o
 ```bash
 just sim           # build the iPhone app and run it in the iPhone 17 simulator
 just autoplay      # the same, with a debug autoplayer that lets go when the aim line meets the next star
+just device NAME   # build and install on a real iPhone (see docs/DEVICES.md for signing and TestFlight)
 just test          # replay the nine web runs against the Swift engine
 just play          # open the 2D web version (just play 3d for the 3D one)
 just fixtures      # re-record the reference runs from web/perihelion-2d.html
@@ -120,6 +121,8 @@ tools/
   icon.swift                   draws the app icon with Core Graphics
 docs/
   RULES.md                     every rule and constant
+  DEVICES.md                   your own iPhone, TestFlight for friends, and the App Store
+Config/                        signing (team ID in an ignored Local.xcconfig) and TestFlight upload settings
   WRITEUP.md                   the long version of this README
 ```
 
