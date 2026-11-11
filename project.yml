@@ -16,6 +16,8 @@ targets:
     dependencies:
       - package: PerihelionKit
         product: PerihelionCore
+      - package: PerihelionKit
+        product: PerihelionAudio
     info:
       path: App/Info.plist
       properties:
@@ -31,6 +33,11 @@ targets:
         CADisableMinimumFrameDurationOnPhone: true
         ITSAppUsesNonExemptEncryption: false
         LSApplicationCategoryType: public.app-category.arcade-games
+        UIAppFonts:
+          - IMFeENrm28P.ttf
+          - IMFeENit28P.ttf
+          - DMMono-Regular.ttf
+          - DMMono-Medium.ttf
     configFiles:
       Debug: Config/Base.xcconfig
       Release: Config/Base.xcconfig
@@ -39,5 +46,5 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.glukicov.perihelion
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "0.1.0"
+        MARKETING_VERSION: "0.2.0"
         CURRENT_PROJECT_VERSION: "1"

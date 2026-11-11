@@ -25,12 +25,20 @@ struct GameView: View {
                     }
             )
 
+            Veil()
+            Palette.scrim
+                .opacity(session.showsScrim ? 0.66 : 0)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .animation(session.calm ? nil : .easeOut(duration: 0.35), value: session.showsScrim)
+
             Overlays(session: session)
         }
         .background(session.tint.ground.color.ignoresSafeArea())
         .onAppear { session.start() }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { session.setPaused(true) }
+            if phase == .active { session.foreground() }
         }
     }
 }
@@ -48,6 +56,24 @@ private struct ChartCanvas: View {
     }
 }
 
+private struct Veil: View {
+    var body: some View {
+        GeometryReader { geo in
+            RadialGradient(
+                stops: [
+                    .init(color: .clear, location: 0.42),
+                    .init(color: Palette.veil.opacity(0.55), location: 1),
+                ],
+                center: UnitPoint(x: 0.5, y: 0.45),
+                startRadius: 0,
+                endRadius: max(geo.size.width, geo.size.height)
+            )
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
 private struct Overlays: View {
     let session: Session
 
@@ -55,31 +81,13 @@ private struct Overlays: View {
         let game = session.game
         ZStack {
             if game.mode == .title {
-                TitleCard(records: session.records)
+                TitleCard(records: session.records, calm: session.calm)
                     .transition(.opacity)
                     .allowsHitTesting(false)
             }
-            if session.showsHUD {
-                HUD(session: session)
-            }
-            if let banner = session.banner {
-                BannerView(banner: banner)
+            if session.showsPlayChrome {
+                PlayChrome(session: session)
                     .transition(.opacity)
-                    .allowsHitTesting(false)
-            }
-            if let hint = session.hint, game.mode == .play {
-                VStack {
-                    Spacer()
-                    Text(hint)
-                        .font(Palette.display(17))
-                        .foregroundStyle(Palette.chalk)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 9)
-                        .background(.black.opacity(0.22), in: Capsule())
-                        .padding(.bottom, 40)
-                }
-                .transition(.opacity)
-                .allowsHitTesting(false)
             }
             if game.mode == .dead {
                 GameOverCard(session: session)
@@ -88,57 +96,114 @@ private struct Overlays: View {
             }
             if session.paused {
                 PauseCard(session: session)
+                    .transition(.opacity)
             }
         }
-        .animation(.easeOut(duration: 0.35), value: game.mode)
-        .animation(.easeOut(duration: 0.35), value: session.banner)
-        .animation(.easeOut(duration: 0.35), value: session.hint)
-        .animation(.easeOut(duration: 0.25), value: session.paused)
+        .overlay(alignment: .topTrailing) {
+            if !session.showsPlayChrome {
+                SoundControl(session: session)
+                    .padding(.top, 8)
+                    .padding(.trailing, 14)
+            }
+        }
+        .animation(session.calm ? nil : .easeOut(duration: 0.35), value: game.mode)
+        .animation(session.calm ? nil : .easeOut(duration: 0.6), value: session.banner)
+        .animation(session.calm ? nil : .easeOut(duration: 0.3), value: session.hint)
+        .animation(session.calm ? nil : .easeOut(duration: 0.25), value: session.paused)
     }
 }
 
-private struct HUD: View {
+private struct PlayChrome: View {
     let session: Session
 
     var body: some View {
         let game = session.game
-        VStack {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Text(Int(session.shown.rounded()).formatted())
-                            .font(Palette.display(44))
-                            .monospacedDigit()
-                            .contentTransition(.identity)
-                        if game.flow > 0 {
-                            Text("FLOW ×\(1 + game.flow)")
-                                .font(Palette.mono(17, weight: .medium))
-                                .foregroundStyle(Palette.comet)
-                        }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 12) {
+                Text(Palette.points(Int(session.shown.rounded())))
+                    .font(Palette.display(54))
+                    .foregroundStyle(Palette.chalk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                VStack(alignment: .leading, spacing: 3) {
+                    if game.flow > 0 {
+                        FlowMark(flow: game.flow, calm: session.calm)
                     }
                     Text(Catalog.starName(game.reached))
-                        .font(Palette.display(17))
+                        .font(Palette.display(17, italic: false))
+                        .foregroundStyle(Palette.chalk)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
-                .foregroundStyle(Palette.chalk)
-                .allowsHitTesting(false)
-                Spacer()
-                if game.mode == .play {
-                    Button {
-                        session.setPaused(true)
-                    } label: {
-                        Image(systemName: "pause.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Palette.chalk)
-                            .frame(width: 44, height: 44)
-                            .overlay(Rectangle().stroke(Palette.chalk.opacity(0.7), lineWidth: 1.2).padding(4))
-                    }
-                    .accessibilityLabel("Pause")
-                }
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 6)
+            .padding(.trailing, 48)
+            .allowsHitTesting(false)
+            if let banner = session.banner {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(banner.name)
+                        .font(Palette.display(30))
+                        .foregroundStyle(Palette.chalk)
+                    if !banner.rule.isEmpty {
+                        Text(banner.rule)
+                            .font(Palette.mono(11))
+                            .tracking(0.8)
+                            .textCase(.uppercase)
+                            .foregroundStyle(Palette.chalkDim)
+                    }
+                }
+                .padding(.top, 18)
+                .transition(.opacity)
+                .allowsHitTesting(false)
+            }
             Spacer()
+            if let hint = session.hint {
+                Text(hint)
+                    .font(Palette.mono(11, weight: .medium))
+                    .tracking(1.1)
+                    .textCase(.uppercase)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Palette.chalk)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(Palette.scrim.opacity(0.66))
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 36)
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+            }
         }
+        .padding(.horizontal, 22)
+        .padding(.top, 12)
+        .overlay(alignment: .topTrailing) {
+            PauseButton(session: session)
+                .padding(.top, 8)
+                .padding(.trailing, 14)
+        }
+    }
+}
+
+private struct FlowMark: View {
+    let flow: Int
+    let calm: Bool
+    @State private var scale: CGFloat = 1
+
+    var body: some View {
+        Text("FLOW ×\(1 + flow)")
+            .font(Palette.mono(13, weight: .medium))
+            .tracking(1.3)
+            .foregroundStyle(Palette.comet)
+            .scaleEffect(scale, anchor: .leading)
+            .onAppear { bump() }
+            .onChange(of: flow) { _, _ in bump() }
+    }
+
+    private func bump() {
+        guard !calm else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { scale = 1.7 }
+        withAnimation(.easeOut(duration: 0.35)) { scale = 1 }
     }
 }
 
@@ -147,9 +212,11 @@ private struct KeyGlyph: View {
 
     var body: some View {
         Canvas { context, size in
-            let r = kind == .red ? 9.0 : kind == .blue ? 8.0 : 10.0
-            drawGlyph(context, x: size.width / 2, y: size.height / 2, size: r * size.width / 24, kind: kind, charted: true,
-                      color: tintColor(kind), lineWidth: 1.2)
+            let radius = kind == .red ? 9.0 : kind == .blue ? 8.0 : 10.0
+            drawGlyph(
+                context, x: size.width / 2, y: size.height / 2, size: radius * size.width / 24, kind: kind,
+                charted: true, color: tintColor(kind), lineWidth: 1.2
+            )
         }
         .frame(width: 24, height: 24)
     }
@@ -157,86 +224,86 @@ private struct KeyGlyph: View {
 
 private struct CTA: View {
     let text: String
+    let calm: Bool
+    @State private var dim = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            Circle().fill(Palette.comet).frame(width: 7, height: 7)
-            Text(text.uppercased())
-                .font(Palette.mono(13, weight: .medium))
-                .tracking(3)
+        HStack(spacing: 10) {
+            Circle()
+                .fill(Palette.comet)
+                .frame(width: 8, height: 8)
+                .opacity(calm || !dim ? 1 : 0.25)
+                .scaleEffect(calm || !dim ? 1 : 0.7)
+            Text(text)
+                .font(Palette.mono(12, weight: .medium))
+                .tracking(1.7)
+                .textCase(.uppercase)
                 .foregroundStyle(Palette.chalk)
+        }
+        .onAppear {
+            guard !calm else { return }
+            withAnimation(.easeInOut(duration: 0.65).repeatForever(autoreverses: true)) { dim = true }
         }
     }
 }
 
 private struct TitleCard: View {
     let records: Records
+    let calm: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Perihelion")
-                .font(Palette.display(64))
-                .foregroundStyle(Palette.chalk)
-                .minimumScaleFactor(0.6)
-                .lineLimit(1)
-            Text("Tap to let go of your star. Catch the next one before this one burns out.")
-                .font(.custom("IowanOldStyle-Roman", size: 19))
-                .foregroundStyle(Palette.chalk)
-                .padding(.top, 8)
-            Spacer()
-            VStack(alignment: .leading, spacing: 10) {
-                row(.white, "White stars hold steady.")
-                row(.red, "Red giants swing wide and burn out fast.")
-                row(.blue, "Blue stars spin tight and quick.")
-            }
-            Text("LEAVE ON YOUR FIRST LAP TO BUILD FLOW.")
-                .font(Palette.mono(11))
-                .tracking(1.6)
-                .foregroundStyle(Palette.chalkDim)
-                .padding(.top, 18)
-            if records.hi > 0 {
-                Text("BEST \(records.hi.formatted()) POINTS, FURTHEST \(Catalog.starName(records.far).uppercased())")
+        GeometryReader { geo in
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Perihelion")
+                    .font(Palette.display(min(86, max(54, geo.size.width * 0.17))))
+                    .foregroundStyle(Palette.chalk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .padding(.trailing, 108)
+                Text("Tap to let go of your star. Catch the next one before this one burns out.")
+                    .font(Palette.display(20, italic: false))
+                    .foregroundStyle(Palette.chalk)
+                    .padding(.top, 14)
+                    .padding(.trailing, 12)
+                Spacer(minLength: 16)
+                if geo.size.height >= 600 {
+                    VStack(alignment: .leading, spacing: 10) {
+                        row(.white, "White stars hold steady.")
+                        row(.red, "Red giants swing wide and burn out fast.")
+                        row(.blue, "Blue stars spin tight and quick.")
+                    }
+                }
+                Text("Leave on your first lap to build flow.")
                     .font(Palette.mono(11))
-                    .tracking(1.6)
+                    .tracking(0.8)
+                    .textCase(.uppercase)
                     .foregroundStyle(Palette.chalkDim)
-                    .padding(.top, 6)
+                    .padding(.top, 18)
+                if records.hi > 0 {
+                    Text("Best \(Palette.points(records.hi)) points, furthest \(Catalog.starName(records.far))")
+                        .font(Palette.mono(11))
+                        .tracking(0.8)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Palette.chalkDim)
+                        .padding(.top, 10)
+                }
+                CTA(text: "Tap anywhere to begin", calm: calm)
+                    .padding(.top, 18)
             }
-            CTA(text: "Tap anywhere to begin")
-                .padding(.top, 18)
+            .padding(.horizontal, 22)
+            .padding(.top, 76)
+            .padding(.bottom, 28)
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
         }
-        .padding(.horizontal, 22)
-        .padding(.top, 50)
-        .padding(.bottom, 24)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func row(_ kind: StarKind, _ text: String) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             KeyGlyph(kind: kind)
             Text(text)
-                .font(.custom("IowanOldStyle-Roman", size: 17))
+                .font(Palette.display(16, italic: false))
                 .foregroundStyle(Palette.chalk)
         }
-    }
-}
-
-private struct BannerView: View {
-    let banner: Banner
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Text(banner.name)
-                .font(Palette.display(40))
-                .foregroundStyle(Palette.chalk)
-            if !banner.rule.isEmpty {
-                Text(banner.rule.uppercased())
-                    .font(Palette.mono(12))
-                    .tracking(2)
-                    .foregroundStyle(Palette.chalkDim)
-            }
-        }
-        .padding(.top, 150)
-        .frame(maxHeight: .infinity, alignment: .top)
     }
 }
 
@@ -245,49 +312,59 @@ private struct GameOverCard: View {
 
     var body: some View {
         let game = session.game
-        let records = session.records
         VStack(alignment: .leading, spacing: 14) {
             Text(game.cause)
-                .font(Palette.display(34))
+                .font(Palette.display(40))
                 .foregroundStyle(Palette.chalk)
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(game.score.formatted())
-                    .font(Palette.display(64))
-                    .foregroundStyle(Palette.comet)
-                Text("points")
-                    .font(Palette.display(20))
-                    .foregroundStyle(Palette.chalkDim)
-                if session.newBest {
-                    Text("NEW BEST")
-                        .font(Palette.mono(11, weight: .medium))
-                        .tracking(2)
-                        .foregroundStyle(Palette.comet)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.trailing, 96)
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(Palette.points(game.score))
+                    .font(Palette.display(72))
+                    .foregroundStyle(Palette.chalk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.4)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("points")
+                        .font(Palette.mono(12, weight: .medium))
+                        .tracking(1.7)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Palette.chalk)
+                    if session.newBest {
+                        Text("New best")
+                            .font(Palette.mono(12, weight: .medium))
+                            .tracking(1.7)
+                            .textCase(.uppercase)
+                            .foregroundStyle(Palette.comet)
+                    }
                 }
             }
-            Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
+            Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 7) {
                 stat("Reached", game.reached > 0 ? "\(Catalog.starName(game.reached)), star \(game.reached)" : "Nowhere past Sol")
                 stat("Best flow", "×\(1 + game.stats.bestFlow)")
                 stat("Dead centres", "\(game.stats.centres)")
-                stat("Best score", records.hi.formatted())
+                stat("Best score", Palette.points(session.records.hi))
             }
-            CTA(text: "Tap to launch again")
+            .padding(.top, 4)
+            CTA(text: "Tap to launch again", calm: session.calm)
                 .padding(.top, 10)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.black.opacity(0.28))
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 22)
+        .padding(.top, 76)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func stat(_ key: String, _ value: String) -> some View {
         GridRow {
-            Text(key.uppercased())
-                .font(Palette.mono(11))
-                .tracking(1.5)
+            Text(key)
+                .font(Palette.mono(12))
+                .tracking(0.7)
+                .textCase(.uppercase)
                 .foregroundStyle(Palette.chalkDim)
             Text(value)
-                .font(.custom("IowanOldStyle-Roman", size: 17))
+                .font(Palette.mono(12))
                 .foregroundStyle(Palette.chalk)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -296,35 +373,77 @@ private struct PauseCard: View {
     let session: Session
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.35).ignoresSafeArea()
-            VStack(spacing: 22) {
-                Text("Paused")
-                    .font(Palette.display(44))
-                    .foregroundStyle(Palette.chalk)
-                HStack(spacing: 14) {
-                    Button("Resume") { session.setPaused(false) }
-                        .buttonStyle(ChartButton(primary: true))
-                    Button("Start over") { session.restart() }
-                        .buttonStyle(ChartButton(primary: false))
-                }
+        VStack(alignment: .leading, spacing: 22) {
+            Text("Paused")
+                .font(Palette.display(44))
+                .foregroundStyle(Palette.chalk)
+            HStack(spacing: 12) {
+                Button("Resume") { session.setPaused(false) }
+                    .buttonStyle(ChartButton(primary: true))
+                Button("Start over") { session.restart() }
+                    .buttonStyle(ChartButton(primary: false))
             }
         }
+        .padding(.horizontal, 22)
+        .padding(.top, 76)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct SoundControl: View {
+    let session: Session
+
+    var body: some View {
+        Button {
+            session.toggleMuted()
+        } label: {
+            Text(session.records.muted ? "Sound off" : "Sound on")
+        }
+        .buttonStyle(ChartButton(primary: false, dashed: session.records.muted, dim: session.records.muted))
+        .accessibilityLabel(session.records.muted ? "Sound off" : "Sound on")
+    }
+}
+
+private struct PauseButton: View {
+    let session: Session
+
+    var body: some View {
+        Button {
+            session.setPaused(true)
+        } label: {
+            HStack(spacing: 4) {
+                Rectangle().frame(width: 4, height: 14)
+                Rectangle().frame(width: 4, height: 14)
+            }
+            .foregroundStyle(Palette.chalk)
+            .frame(width: 44, height: 44)
+            .overlay(Rectangle().stroke(Palette.chalkDim, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Pause")
     }
 }
 
 private struct ChartButton: ButtonStyle {
-    let primary: Bool
+    var primary = false
+    var dashed = false
+    var dim = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Palette.mono(14, weight: .medium))
-            .tracking(1.5)
-            .foregroundStyle(primary ? Color.black.opacity(0.8) : Palette.chalk)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(primary ? Palette.comet : Color.clear)
-            .overlay(Rectangle().stroke(primary ? Palette.comet : Palette.chalk.opacity(0.7), lineWidth: 1.2))
-            .opacity(configuration.isPressed ? 0.7 : 1)
+            .font(Palette.mono(11, weight: .medium))
+            .tracking(1.3)
+            .textCase(.uppercase)
+            .foregroundStyle(dim ? Palette.chalkDim : (primary ? Palette.comet : Palette.chalk))
+            .padding(.horizontal, 16)
+            .frame(minHeight: 44)
+            .background(configuration.isPressed ? Palette.chalk.opacity(0.14) : Palette.scrim.opacity(0.45))
+            .overlay {
+                let dash: [CGFloat] = dashed ? [3, 3] : []
+                Rectangle().stroke(
+                    primary ? Palette.comet : (dim ? Palette.chalkDim : Palette.chalk.opacity(0.64)),
+                    style: StrokeStyle(lineWidth: 1, dash: dash)
+                )
+            }
     }
 }
