@@ -1,0 +1,2048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Perihelion 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Layout: a strip of cyanotype star chart floats in the dark with the stars hovering over it.
+     Words sit in the screen margins, caption top-left and key bottom-left, like plate lettering. */
+  --prussian: #11315e;
+  --abyss: #061430;
+  --chalk: #edf2f4;
+  --chalk-dim: rgba(237, 242, 244, 0.68);
+  --comet: #f4c95d;
+  --ember: #ff8a66;
+  --ice: #a9dcff;
+  --display: "IM Fell English", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --gutter: 22px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--abyss);
+  color: var(--chalk);
+  font-family: var(--mono);
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#sky, #ink {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#ink { pointer-events: none; }
+
+.veil, .scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.veil { background: radial-gradient(130% 85% at 50% 50%, rgba(2, 6, 18, 0) 45%, rgba(2, 6, 18, 0.5) 100%); }
+.scrim {
+  background: #040914;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+body[data-mode="dead"] .scrim,
+body[data-mode="fail"] .scrim,
+body[data-paused="1"] .scrim { opacity: 0.66; }
+
+/* Every block of words shares the screen margins and fades in by game state. */
+.layer {
+  position: absolute;
+  left: max(var(--gutter), env(safe-area-inset-left, 0px));
+  right: max(var(--gutter), env(safe-area-inset-right, 0px));
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  text-shadow: 0 1px 14px rgba(4, 9, 20, 0.85);
+  transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+body[data-mode="title"] #title,
+body[data-mode="title"] #legend,
+body[data-mode="play"] #hud,
+body[data-mode="play"] #hint.on,
+body[data-mode="play"] #banner.on,
+body[data-mode="play"][data-paused="1"] #pause,
+body[data-mode="dead"] #over,
+body[data-mode="fail"] #fail {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+body[data-paused="1"] #hud,
+body[data-paused="1"] #hint.on,
+body[data-paused="1"] #banner.on { opacity: 0; }
+
+.plate {
+  top: calc(env(safe-area-inset-top, 0px) + 76px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+#legend {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+h1, h2, p, ul, dl, dd { margin: 0; }
+
+h1 {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(54px, 17vw, 86px);
+  line-height: 0.92;
+  letter-spacing: -0.012em;
+}
+h1 .tag {
+  margin-top: 0.5em;
+  padding: 4px 7px;
+  border: 1px solid var(--comet);
+  border-radius: 2px;
+  color: var(--comet);
+  font: 500 12px/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-shadow: none;
+}
+h2 {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(34px, 10.5vw, 50px);
+  line-height: 1;
+  text-wrap: balance;
+}
+.lede {
+  max-width: 17em;
+  font-family: var(--display);
+  font-size: 20px;
+  line-height: 1.28;
+}
+.note {
+  max-width: 34em;
+  color: var(--chalk-dim);
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.key {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  list-style: none;
+  font-family: var(--display);
+  font-size: 16px;
+  line-height: 1.2;
+}
+.key li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.key canvas {
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+
+.cta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--comet);
+  animation: pulse 1.3s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% { opacity: 0.25; transform: scale(0.7); }
+}
+
+#hud {
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.num {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 54px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.where {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--display);
+  font-size: 17px;
+  line-height: 1.1;
+}
+.mult {
+  align-self: flex-start;
+  color: var(--comet);
+  font: 500 13px/1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transform-origin: left center;
+}
+.mult.bump { animation: bump 0.35s ease-out; }
+@keyframes bump {
+  0% { transform: scale(1.7); }
+  100% { transform: scale(1); }
+}
+
+#banner {
+  top: calc(env(safe-area-inset-top, 0px) + 92px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition-duration: 0.6s, 0s;
+}
+#banner .name {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 30px;
+  line-height: 1;
+}
+
+#hint {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 36px);
+  display: flex;
+  justify-content: center;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-shadow: none;
+  text-wrap: balance;
+}
+#hint span {
+  padding: 9px 14px;
+  border-radius: 2px;
+  background: rgba(4, 9, 20, 0.7);
+}
+
+.result {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.result .num { font-size: clamp(64px, 20vw, 92px); }
+.result .unit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.flag { color: var(--comet); }
+
+.stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 7px 18px;
+  font-size: 12px;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+}
+.stats dt {
+  color: var(--chalk-dim);
+  text-transform: uppercase;
+}
+.stats dd { font-variant-numeric: tabular-nums; }
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--chalk-dim);
+  border-radius: 2px;
+  background: rgba(4, 9, 20, 0.5);
+  color: var(--chalk);
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  touch-action: manipulation;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.btn.primary {
+  border-color: var(--comet);
+  color: var(--comet);
+}
+.btn:focus-visible { outline: 2px solid var(--comet); outline-offset: 3px; }
+.btn:active { background: rgba(237, 242, 244, 0.14); }
+
+.corner {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  right: max(14px, env(safe-area-inset-right, 0px));
+}
+#sound[aria-pressed="false"] { color: var(--chalk-dim); border-style: dashed; }
+#pause-btn {
+  display: none;
+  width: 44px;
+  padding: 0;
+  place-items: center;
+}
+#pause-btn::before {
+  content: "";
+  width: 4px;
+  height: 14px;
+  border-left: 4px solid var(--chalk);
+  border-right: 4px solid var(--chalk);
+  box-sizing: content-box;
+}
+body[data-mode="play"]:not([data-paused="1"]) #sound,
+body[data-mode="fail"] #sound { display: none; }
+body[data-mode="play"]:not([data-paused="1"]) #pause-btn { display: grid; }
+
+@media (max-height: 600px) {
+  .key { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dot, .mult.bump { animation: none; }
+  .layer, .scrim { transition: none; }
+}
+</style>
+</head>
+<body data-mode="title">
+
+<canvas id="sky" role="img" aria-label="Stars hovering over a star chart. Your comet circles a star until you tap to let go."></canvas>
+<canvas id="ink" aria-hidden="true"></canvas>
+<div class="veil" aria-hidden="true"></div>
+<div class="scrim" aria-hidden="true"></div>
+
+<header class="layer plate" id="title">
+  <h1>Perihelion <span class="tag">3D</span></h1>
+  <p class="lede">Tap to let go of your star. Catch the next one before this one burns out.</p>
+</header>
+
+<footer class="layer" id="legend">
+  <ul class="key" aria-label="Key to the stars">
+    <li><canvas data-kind="white" width="72" height="72" aria-hidden="true"></canvas>White stars hold steady.</li>
+    <li><canvas data-kind="red" width="72" height="72" aria-hidden="true"></canvas>Red giants swing wide and burn out fast.</li>
+    <li><canvas data-kind="blue" width="72" height="72" aria-hidden="true"></canvas>Blue stars spin tight and quick.</li>
+  </ul>
+  <p class="note">Leave on your first lap to build flow.</p>
+  <p class="note" id="best-title" hidden></p>
+  <p class="cta"><span class="dot" aria-hidden="true"></span>Tap anywhere to begin</p>
+</footer>
+
+<div class="layer" id="hud">
+  <span class="num" id="score">0</span>
+  <span class="where"><span class="mult" id="mult" hidden>Flow &times;2</span><span id="reach">Sol</span></span>
+</div>
+
+<div class="layer" id="banner" aria-live="polite">
+  <span class="name" id="banner-name"></span>
+  <span class="note" id="banner-sub"></span>
+</div>
+
+<p class="layer" id="hint"><span id="hint-text"></span></p>
+
+<section class="layer plate" id="over" role="status" aria-live="polite">
+  <h2 id="over-cause">Lost in the dark</h2>
+  <p class="result"><span class="num" id="over-score">0</span><span class="unit">points<span class="flag" id="over-flag" hidden>New best</span></span></p>
+  <dl class="stats" id="over-stats"></dl>
+  <p class="cta"><span class="dot" aria-hidden="true"></span>Tap to launch again</p>
+</section>
+
+<section class="layer plate" id="pause" aria-label="Paused">
+  <h2>Paused</h2>
+  <div class="row">
+    <button type="button" class="btn primary" id="resume">Resume</button>
+    <button type="button" class="btn" id="restart">Start over</button>
+  </div>
+</section>
+
+<section class="layer plate" id="fail" role="alert">
+  <h2>The 3D view could not start</h2>
+  <p class="lede" id="fail-why"></p>
+</section>
+
+<button type="button" class="btn corner" id="sound" aria-pressed="true">Sound on</button>
+<button type="button" class="btn corner" id="pause-btn" aria-label="Pause"></button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  /* ================= Tuning =================
+     The rules run on a flat chart 400 units wide, exactly as in the 2D game.
+     Only the view is 3D: chart x runs left to right, chart y runs away from the camera. */
+  const W = 400;             /* chart width */
+  const WALL = 6;            /* the comet bounces this far inside the chart edge */
+  const RANGE = 540;         /* how far the comet flies before it fades out */
+  const STEP = 1 / 120;      /* fixed simulation step */
+  const CATCH = 5;           /* a ring catches the comet this far outside its radius */
+  const PER_PLATE = 8;       /* stars per plate */
+  const MAX_FLOW = 7;        /* flow tops out at x8 */
+  const LAP_GRACE = 0.35;    /* seconds of leeway past one lap before flow is lost */
+  const CENTRE = 0.22;       /* aim within this share of the ring for a dead centre */
+  const AHEAD = 2900;        /* stars exist this far ahead of the camera's focus */
+  const BEHIND = 250;        /* a comet this far behind the focus is lost */
+  const TAU = Math.PI * 2;
+
+  /* View */
+  const FOV = 62;                        /* vertical field of view, degrees */
+  const ELEV = 52 * Math.PI / 180;       /* camera elevation above the chart */
+  const FOG = 0.0006;                    /* how quickly the distance fades */
+  const HOVER = 40;                      /* the stars float this far above the chart */
+
+  const KIND = {
+    sol:   { R: 1,    w: 1,    fuse: 1,   body: 1,    core: '#fff3d6', rim: '#f4c95d' },
+    white: { R: 1,    w: 1,    fuse: 1,   body: 1,    core: '#f6f9ff', rim: '#9cc3ff' },
+    red:   { R: 1.3,  w: 0.8,  fuse: 0.6, body: 1.5,  core: '#ffb48f', rim: '#ff5433' },
+    blue:  { R: 0.84, w: 1.18, fuse: 1,   body: 0.85, core: '#eaf7ff', rim: '#4fb2ff' }
+  };
+
+  /* Name, Bayer designation, spectral class, apparent magnitude. Brightest first. */
+  const CATALOG = [
+    ['Sol', '', 'G2 V', -26.74],
+    ['Sirius', 'α CMa', 'A1 V', -1.46], ['Canopus', 'α Car', 'A9 II', -0.74],
+    ['Rigil Kentaurus', 'α Cen', 'G2 V', -0.27], ['Arcturus', 'α Boo', 'K1.5 III', -0.05],
+    ['Vega', 'α Lyr', 'A0 V', 0.03], ['Capella', 'α Aur', 'G3 III', 0.08],
+    ['Rigel', 'β Ori', 'B8 Ia', 0.13], ['Procyon', 'α CMi', 'F5 IV', 0.34],
+    ['Achernar', 'α Eri', 'B6 V', 0.46], ['Betelgeuse', 'α Ori', 'M2 Iab', 0.50],
+    ['Hadar', 'β Cen', 'B1 III', 0.61], ['Altair', 'α Aql', 'A7 V', 0.76],
+    ['Acrux', 'α Cru', 'B0.5 IV', 0.76], ['Aldebaran', 'α Tau', 'K5 III', 0.86],
+    ['Antares', 'α Sco', 'M1.5 Iab', 0.96], ['Spica', 'α Vir', 'B1 IV', 0.97],
+    ['Pollux', 'β Gem', 'K0 III', 1.14], ['Fomalhaut', 'α PsA', 'A3 V', 1.16],
+    ['Deneb', 'α Cyg', 'A2 Ia', 1.25], ['Mimosa', 'β Cru', 'B0.5 III', 1.25],
+    ['Regulus', 'α Leo', 'B8 IV', 1.39], ['Adhara', 'ε CMa', 'B2 II', 1.50],
+    ['Castor', 'α Gem', 'A1 V', 1.58], ['Shaula', 'λ Sco', 'B2 IV', 1.62],
+    ['Gacrux', 'γ Cru', 'M3.5 III', 1.64], ['Bellatrix', 'γ Ori', 'B2 III', 1.64],
+    ['Elnath', 'β Tau', 'B7 III', 1.65], ['Miaplacidus', 'β Car', 'A1 III', 1.69],
+    ['Alnilam', 'ε Ori', 'B0 Ia', 1.69], ['Alnair', 'α Gru', 'B6 V', 1.74],
+    ['Alnitak', 'ζ Ori', 'O9.5 Iab', 1.77], ['Alioth', 'ε UMa', 'A1 III', 1.77],
+    ['Dubhe', 'α UMa', 'K0 III', 1.79], ['Mirfak', 'α Per', 'F5 Ib', 1.80],
+    ['Wezen', 'δ CMa', 'F8 Ia', 1.82], ['Sargas', 'θ Sco', 'F1 II', 1.84],
+    ['Kaus Australis', 'ε Sgr', 'B9.5 III', 1.85], ['Avior', 'ε Car', 'K3 III', 1.86],
+    ['Alkaid', 'η UMa', 'B3 V', 1.86], ['Menkalinan', 'β Aur', 'A1 IV', 1.90],
+    ['Atria', 'α TrA', 'K2 II', 1.91], ['Alhena', 'γ Gem', 'A1 IV', 1.92],
+    ['Peacock', 'α Pav', 'B2 IV', 1.94], ['Alsephina', 'δ Vel', 'A1 V', 1.96],
+    ['Mirzam', 'β CMa', 'B1 II', 1.98], ['Alphard', 'α Hya', 'K3 II', 1.98],
+    ['Polaris', 'α UMi', 'F7 Ib', 1.98], ['Hamal', 'α Ari', 'K2 III', 2.00]
+  ];
+
+  const NEBULAE = ['Coalsack', 'Horsehead', 'Pipe Nebula', 'Snake Nebula', 'Barnard 68', 'Dark Doodad', 'Northern Coalsack'];
+
+  const PLATES = [
+    ['Plate I', ''],
+    ['Plate II', 'Some stars drift'],
+    ['Plate III', 'Dark nebulae swallow comets'],
+    ['Plate IV', 'Faster drift, more nebulae'],
+    ['Plate V', 'Fainter and faster'],
+    ['Plate VI', 'The last charted stars']
+  ];
+  const OFF_CHART = ['Off the chart', 'No one has named these'];
+
+  /* Chart paper and the dark around it, one pair per plate. */
+  const TINTS = [
+    [[19, 55, 106], [6, 20, 48]],
+    [[46, 40, 112], [16, 12, 48]],
+    [[14, 80, 90], [4, 30, 38]],
+    [[86, 34, 56], [34, 10, 22]],
+    [[30, 38, 70], [7, 9, 22]]
+  ];
+
+  const SCALE = [293.66, 329.63, 369.99, 440, 493.88, 587.33, 659.25, 739.99, 880, 987.77, 1174.66];
+
+  /* ================= Plumbing ================= */
+
+  const $ = id => document.getElementById(id);
+  const canvas = $('sky');
+  const inkCanvas = $('ink');
+  const ink = inkCanvas.getContext('2d');
+  const tokens = getComputedStyle(document.documentElement);
+  const tok = name => tokens.getPropertyValue(name).trim();
+  const C = { chalk: tok('--chalk'), comet: tok('--comet'), ember: tok('--ember'), ice: tok('--ice') };
+  const F_DISPLAY = '"IM Fell English", "Iowan Old Style", Georgia, serif';
+  const F_MONO = '"DM Mono", ui-monospace, Menlo, monospace';
+  const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TEST = window.__TEST__ || null;
+
+  const V = { w: 0, h: 0, dpr: 1, dist: 700, H: 0, D: 0, L: 0 };
+  const rec = { hi: 0, far: 0 };
+  const tips = { released: false, flow: false };
+  let G = null;
+  let lastT = null;
+  let hintTimer = 0;
+  let bannerTimer = 0;
+
+  const store = {
+    get(key) { try { return localStorage.getItem(key); } catch (e) { return null; } },
+    set(key, val) { try { localStorage.setItem(key, val); } catch (e) { /* storage is optional */ } }
+  };
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const hash = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+  const fmt = n => Math.round(n).toLocaleString('en-GB');
+  const starName = i => (CATALOG[i] ? CATALOG[i][0] : 'Uncharted ' + i);
+  const kindOf = cls => ('OB'.includes(cls[0]) ? 'blue' : 'KM'.includes(cls[0]) ? 'red' : 'white');
+  const tintOf = kind => (kind === 'red' ? C.ember : kind === 'blue' ? C.ice : C.chalk);
+  const css = c => 'rgb(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0) + ')';
+
+  function mulberry32(a) {
+    return () => {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ================= Sound ================= */
+
+  const Snd = {
+    ctx: null, muted: false, master: null, wet: null, noiseBuf: null, pad: null,
+
+    unlock() {
+      try {
+        if (!this.ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          this.ctx = new AC();
+          this.build();
+        }
+        if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+      } catch (e) { /* audio is optional */ }
+    },
+
+    build() {
+      const ac = this.ctx;
+      this.master = ac.createGain();
+      this.master.gain.value = this.muted ? 0 : 0.85;
+      const comp = ac.createDynamicsCompressor();
+      this.master.connect(comp);
+      comp.connect(ac.destination);
+
+      /* A generated impulse gives every note a long, soft tail. */
+      const n = Math.floor(ac.sampleRate * 2.6);
+      const imp = ac.createBuffer(2, n, ac.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = imp.getChannelData(ch);
+        for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2.8);
+      }
+      const conv = ac.createConvolver();
+      conv.buffer = imp;
+      this.wet = ac.createGain();
+      this.wet.gain.value = 0.5;
+      this.wet.connect(conv);
+      conv.connect(this.master);
+
+      const m = Math.floor(ac.sampleRate);
+      this.noiseBuf = ac.createBuffer(1, m, ac.sampleRate);
+      const nd = this.noiseBuf.getChannelData(0);
+      for (let i = 0; i < m; i++) nd[i] = Math.random() * 2 - 1;
+
+      /* A low drone that opens up as flow builds. */
+      const gain = ac.createGain();
+      gain.gain.value = 0;
+      const lp = ac.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 420;
+      gain.connect(lp);
+      lp.connect(this.master);
+      lp.connect(this.wet);
+      for (const [f, type, g] of [[73.42, 'sine', 0.5], [110.3, 'sine', 0.3], [146.83, 'triangle', 0.16], [220.6, 'sine', 0.1]]) {
+        const osc = ac.createOscillator(), amp = ac.createGain();
+        osc.type = type;
+        osc.frequency.value = f;
+        amp.gain.value = g;
+        osc.connect(amp);
+        amp.connect(gain);
+        osc.start();
+      }
+      const shimmer = ac.createGain();
+      shimmer.gain.value = 0;
+      for (const f of [587.33, 881]) {
+        const osc = ac.createOscillator();
+        osc.frequency.value = f;
+        osc.connect(shimmer);
+        osc.start();
+      }
+      shimmer.connect(this.wet);
+      this.pad = { gain, lp, shimmer };
+      this.mood();
+    },
+
+    mood() {
+      if (!this.pad || !G) return;
+      try {
+        const now = this.ctx.currentTime;
+        const live = G.mode === 'play' && !G.paused;
+        const f = G.flow / MAX_FLOW;
+        this.pad.gain.gain.setTargetAtTime(live ? 0.07 + f * 0.05 : G.mode === 'title' ? 0.045 : 0.02, now, 0.5);
+        this.pad.lp.frequency.setTargetAtTime(420 + (live ? f * 900 : 0), now, 0.7);
+        this.pad.shimmer.gain.setTargetAtTime(live ? f * f * 0.012 : 0, now, 0.7);
+      } catch (e) { /* audio is optional */ }
+    },
+
+    setMuted(m) {
+      this.muted = m;
+      try { if (this.master) this.master.gain.setTargetAtTime(m ? 0 : 0.85, this.ctx.currentTime, 0.03); } catch (e) { /* optional */ }
+    },
+
+    ok() { return this.ctx && this.ctx.state === 'running' && !this.muted; },
+
+    shape(amp, t, dur, o) {
+      amp.gain.setValueAtTime(0.0001, t);
+      amp.gain.exponentialRampToValueAtTime(o.gain || 0.2, t + (o.attack || 0.008));
+      amp.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      amp.connect(this.master);
+      if (o.wet) {
+        const send = this.ctx.createGain();
+        send.gain.value = o.wet;
+        amp.connect(send);
+        send.connect(this.wet);
+      }
+    },
+
+    tone(f, o) {
+      if (!this.ok()) return;
+      try {
+        const ac = this.ctx, t = ac.currentTime + (o.at || 0), dur = o.dur || 0.3;
+        const osc = ac.createOscillator(), amp = ac.createGain();
+        osc.type = o.type || 'sine';
+        osc.frequency.setValueAtTime(f, t);
+        if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+        osc.connect(amp);
+        this.shape(amp, t, dur, o);
+        osc.start(t);
+        osc.stop(t + dur + 0.05);
+      } catch (e) { /* audio is optional */ }
+    },
+
+    noise(o) {
+      if (!this.ok()) return;
+      try {
+        const ac = this.ctx, t = ac.currentTime + (o.at || 0), dur = o.dur || 0.2;
+        const src = ac.createBufferSource(), filt = ac.createBiquadFilter(), amp = ac.createGain();
+        src.buffer = this.noiseBuf;
+        src.loop = true;
+        filt.type = o.type || 'bandpass';
+        filt.Q.value = o.q || 1;
+        filt.frequency.setValueAtTime(o.f || 1000, t);
+        if (o.to) filt.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+        src.connect(filt);
+        filt.connect(amp);
+        this.shape(amp, t, dur, o);
+        src.start(t, Math.random() * 0.5);
+        src.stop(t + dur + 0.05);
+      } catch (e) { /* audio is optional */ }
+    },
+
+    pluck(step, bell) {
+      const f = SCALE[clamp(step, 0, SCALE.length - 1)];
+      this.tone(f, { type: 'triangle', dur: 0.75, gain: 0.2, wet: 0.6 });
+      this.tone(f * 2, { dur: 0.45, gain: 0.06, wet: 0.5, at: 0.012 });
+      if (bell) {
+        this.tone(f * 3, { dur: 1.3, gain: 0.05, wet: 0.9, at: 0.03 });
+        this.tone(f * 4.02, { dur: 1.1, gain: 0.03, wet: 0.9, at: 0.05 });
+      }
+    }
+  };
+
+  /* ================= World ================= */
+
+  function makeStar(i, prev) {
+    const rnd = G.rng;
+    const cat = CATALOG[i];
+    let name, bayer, cls, mag, kind;
+    if (cat) {
+      [name, bayer, cls, mag] = cat;
+      kind = i === 0 ? 'sol' : kindOf(cls);
+    } else {
+      const r = rnd();
+      name = 'Uncharted ' + i; bayer = ''; cls = '';
+      mag = 2 + (i - CATALOG.length + 1) * 0.01;
+      kind = r < 0.25 ? 'red' : r < 0.6 ? 'blue' : 'white';
+    }
+    const k = KIND[kind];
+    const R = i === 0 ? 62 : Math.max(40, 60 - i * 0.45) * k.R;
+    const w = (2.3 + Math.min(i, 40) * 0.026) * k.w;
+    let x = W / 2, y = 0;
+    if (prev) {
+      const gap = Math.max(175 + Math.min(i, 30) * 1.2 + rnd() * 50, prev.R + R + 62);
+      y = prev.y - gap;
+      const lo = R + 26, hi = W - R - 26;
+      let tries = 0;
+      do {
+        x = lo + rnd() * (hi - lo);
+        tries++;
+      } while (tries < 14 && (Math.abs(x - prev.x0) < 36 || Math.abs(x - prev.x0) > 190));
+    }
+    let amp = 0;
+    if (i > PER_PLATE && rnd() < (i <= 16 ? 0.4 : i <= 24 ? 0.5 : 0.65)) {
+      amp = Math.min(18 + rnd() * 27, x - R - 12, W - R - 12 - x);
+      if (amp < 8) amp = 0;
+    }
+    /* A fuse always lasts at least 1.7 laps, so there is always a fair chance to leave. */
+    const fuse = i === 0 ? Infinity : Math.max(Math.max(3.2, 7.5 - i * 0.1) * k.fuse, 1.7 * TAU / w);
+    return {
+      i, name, sub: bayer ? bayer + ' · ' + cls : '', mag, kind,
+      x, x0: x, y, R, w,
+      amp, ph: rnd() * TAU, spd: (0.7 + rnd() * 0.6) * (i > 24 ? 1.25 : 1),
+      fuse, fuse0: fuse,
+      body: (i === 0 ? 12 : clamp(7 + (2.2 - mag) * 2.2, 6, 15)) * k.body,
+      labelRight: x < W / 2,
+      charted: i === 0, inkT: -9, dead: false, pop: 0, view: null
+    };
+  }
+
+  /* A dark nebula sits beside the straight path between two stars and clips one side of it. */
+  function maybeNebula(a, b) {
+    const rnd = G.rng;
+    if (b.i <= 16 || rnd() >= (b.i <= 24 ? 0.45 : 0.6)) return;
+    const dx = b.x0 - a.x0, dy = b.y - a.y, len = Math.hypot(dx, dy);
+    const nx = -dy / len, ny = dx / len;
+    const t = 0.42 + rnd() * 0.16, r = 11 + rnd() * 4;
+    const off = (b.i <= 24 ? 50 : 42) + rnd() * 24;
+    let side = rnd() < 0.5 ? -1 : 1;
+    for (let k = 0; k < 2; k++, side = -side) {
+      const x = a.x0 + dx * t + nx * off * side, y = a.y + dy * t + ny * off * side;
+      if (x < r + 14 || x > W - r - 14) continue;
+      if (Math.hypot(x - a.x0, y - a.y) < a.R + a.amp + r + 16) continue;
+      if (Math.hypot(x - b.x0, y - b.y) < b.R + b.amp + r + 16) continue;
+      G.blots.push({ x, y, r, name: NEBULAE[G.nBlots++ % NEBULAE.length], seed: rnd() * 1000, view: null });
+      return;
+    }
+  }
+
+  function ensureStars() {
+    let last = G.stars[G.stars.length - 1];
+    while (last.y > G.camY - AHEAD) {
+      const s = makeStar(last.i + 1, last);
+      maybeNebula(last, s);
+      G.stars.push(s);
+      last = s;
+    }
+    const floor = G.camY + 700;
+    while (G.stars.length > 4 && G.stars[0].y > floor && G.stars[0] !== G.comet.star) G.stars.shift();
+    if (G.blots.length && G.blots[0].y > floor) G.blots.shift();
+    if (G.links.length && G.links[0].b.y > floor) G.links.shift();
+  }
+
+  const lapOf = s => TAU + s.w * LAP_GRACE;
+
+  function newGame(mode) {
+    const seed = TEST && TEST.seed ? TEST.seed : (Math.random() * 4294967296) >>> 0;
+    G = {
+      mode, t: 0, clock: 0, acc: 0, rng: mulberry32(seed), paused: false,
+      stars: [], blots: [], links: [], nBlots: 0, comet: null, last: null,
+      camY: 0, camT: 0, fx: 0, startAt: -9, kick: 0, slow: 0, slowK: 1, shake: 0, flash: 0, flashCol: C.chalk,
+      rail: [0, 0],
+      score: 0, shown: 0, reached: 0, flow: 0, plate: 0, beatHi: false,
+      stats: { centres: 0, banks: 0, skips: 0, bestFlow: 0 },
+      tint: { from: TINTS[0], to: TINTS[0], t: 1 },
+      trail: [], tail: 0.34, sparks: [], ripples: [], shells: [], pops: [],
+      aim: null, aimLit: null, coach: rec.far < 5, cause: '', deadAt: 0
+    };
+    const sol = makeStar(0, null);
+    G.stars.push(sol);
+    G.last = sol;
+    G.comet = {
+      x: sol.x, y: sol.y - sol.R, vx: 0, vy: 0, star: sol, r: sol.R, ang: -Math.PI / 2, dir: 1,
+      from: null, flung: null, flown: 0, swept: 0, lapOpen: true, swift: true, bounces: 0
+    };
+    ensureStars();
+    S3.snap = true;
+    document.body.dataset.paused = '0';
+    $('banner').classList.remove('on');
+    setMode(mode);
+    paintHud(true);
+    if (mode === 'play') openingHint();
+  }
+
+  function setMode(mode) {
+    G.mode = mode;
+    document.body.dataset.mode = mode;
+    Snd.mood();
+  }
+
+  /* ================= Rules ================= */
+
+  function act() {
+    if (!G || G.paused) return;
+    if (G.mode === 'title') {
+      G.startAt = G.clock;
+      setMode('play');
+      openingHint();
+    } else if (G.mode === 'play') {
+      if (G.comet.star) release(false);
+    } else if (G.mode === 'dead' && G.clock - G.deadAt > 0.6) {
+      newGame('play');
+    }
+  }
+
+  function release(auto) {
+    const c = G.comet, s = c.star;
+    if (!s) return;
+    const speed = 460 + Math.min(G.reached, 40) * 4;
+    c.vx = -Math.sin(c.ang) * c.dir * speed;
+    c.vy = Math.cos(c.ang) * c.dir * speed;
+    c.swift = s.i === 0 || c.lapOpen;
+    c.star = null;
+    c.from = s;
+    c.flung = auto ? s : null;
+    c.flown = 0;
+    c.bounces = 0;
+    emit('release', { auto });
+  }
+
+  function capture(s, d) {
+    const c = G.comet;
+    const speed = Math.hypot(c.vx, c.vy) || 1;
+    const rx = c.x - s.x, ry = c.y - s.y;
+    const cross = rx * c.vy - ry * c.vx;
+    const off = Math.abs(cross) / speed / (s.R + CATCH);
+    const ev = { s, isNew: s.i > G.reached, pts: 0, tags: [], centre: false, lost: false };
+
+    c.star = s;
+    c.r = d;
+    c.ang = Math.atan2(ry, rx);
+    c.dir = cross >= 0 ? 1 : -1;
+    c.swept = 0;
+    c.from = null;
+    c.flung = null;
+    G.camT = s.y;
+    if (!s.charted) { s.charted = true; s.inkT = G.t; }
+
+    let plate = -1;
+    if (ev.isNew) {
+      const n = s.i - G.reached;
+      if (c.swift) G.flow = Math.min(MAX_FLOW, G.flow + 1);
+      G.stats.bestFlow = Math.max(G.stats.bestFlow, G.flow);
+      const m = 1 + G.flow;
+      let pts = 10 * n * m;
+      if (n >= 2) { pts += 25 * m; ev.tags.push('Skipped ' + (n - 1)); G.stats.skips++; }
+      if (c.bounces > 0) { pts += 15 * m; ev.tags.push('Bank shot'); G.stats.banks++; }
+      if (off < CENTRE) { pts += 10 * m; ev.tags.push('Dead centre'); ev.centre = true; G.stats.centres++; }
+      ev.pts = pts;
+      G.score += pts;
+      G.links.push({ a: G.last, b: s, t0: G.t });
+      G.last = s;
+      G.reached = s.i;
+      c.lapOpen = true;
+      const p = Math.floor((s.i - 1) / PER_PLATE);
+      if (p > G.plate) { G.plate = p; plate = p; }
+    } else {
+      c.lapOpen = false;
+      if (G.flow > 0) { G.flow = 0; ev.lost = true; }
+    }
+    c.bounces = 0;
+    emit('capture', ev);
+    if (plate >= 0) emit('plate', { plate });
+  }
+
+  function die(kind, what) {
+    const c = G.comet;
+    G.cause = kind === 'blot' ? 'Lost in the ' + what.name
+      : c.flung ? c.flung.name + ' burned out'
+      : 'Lost in the dark';
+    G.deadAt = G.clock;
+    emit('die', { kind });
+  }
+
+  function tick(dt) {
+    G.t += dt;
+    for (const s of G.stars) if (s.amp) s.x = s.x0 + s.amp * Math.sin(s.ph + G.t * s.spd);
+    if (G.mode === 'dead') return;
+
+    const c = G.comet;
+    if (c.star) {
+      const s = c.star;
+      const da = s.w * dt;
+      c.r += (s.R - c.r) * (1 - Math.exp(-dt * 9));
+      c.ang += c.dir * da;
+      c.swept += da;
+      c.x = s.x + Math.cos(c.ang) * c.r;
+      c.y = s.y + Math.sin(c.ang) * c.r;
+      if (G.mode !== 'play' || s.i === 0) return;
+      if (c.lapOpen && c.swept >= lapOf(s)) {
+        c.lapOpen = false;
+        if (G.flow > 0) { G.flow = 0; emit('flowlost', {}); }
+      }
+      const before = s.fuse;
+      s.fuse -= dt;
+      if (s.fuse < 1.5 && Math.floor(before / 0.25) !== Math.floor(s.fuse / 0.25)) emit('fuse', { left: s.fuse });
+      if (s.fuse <= 0) {
+        s.dead = true;
+        release(true);
+        emit('supernova', { s });
+      }
+      return;
+    }
+
+    c.flown += Math.hypot(c.vx, c.vy) * dt;
+    c.x += c.vx * dt;
+    c.y += c.vy * dt;
+    if (c.x < WALL) { c.x = WALL; c.vx = Math.abs(c.vx); c.bounces++; emit('knock', { side: 0 }); }
+    else if (c.x > W - WALL) { c.x = W - WALL; c.vx = -Math.abs(c.vx); c.bounces++; emit('knock', { side: 1 }); }
+    if (c.from && Math.hypot(c.x - c.from.x, c.y - c.from.y) > c.from.R + 12) c.from = null;
+    for (const b of G.blots) {
+      if (Math.hypot(c.x - b.x, c.y - b.y) < b.r) { die('blot', b); return; }
+    }
+    for (const s of G.stars) {
+      if (s.dead || s === c.from) continue;
+      const d = Math.hypot(c.x - s.x, c.y - s.y);
+      if (d < s.R + CATCH) { capture(s, d); return; }
+    }
+    G.camT = Math.min(G.camT, c.y);
+    if (c.y > G.camY + BEHIND || c.flown > RANGE) die('lost');
+  }
+
+  /* Where the comet would end up if it let go right now. */
+  function castAim() {
+    const c = G.comet;
+    if (!c.star) return null;
+    let x = c.x, y = c.y, dx = -Math.sin(c.ang) * c.dir, dy = Math.cos(c.ang) * c.dir;
+    let from = c.star;
+    for (let d = 0; d < RANGE; d += 3) {
+      x += dx * 3; y += dy * 3;
+      if (x < WALL) { x = WALL; dx = Math.abs(dx); } else if (x > W - WALL) { x = W - WALL; dx = -Math.abs(dx); }
+      for (const b of G.blots) if (Math.hypot(x - b.x, y - b.y) < b.r + 2) return { blot: b, d };
+      if (from && Math.hypot(x - from.x, y - from.y) > from.R + 12) from = null;
+      for (const s of G.stars) {
+        if (s.dead || s === from) continue;
+        if (Math.hypot(x - s.x, y - s.y) < s.R + CATCH) return { star: s, d };
+      }
+    }
+    return null;
+  }
+
+  /* ================= Effects, sound and words in answer to the rules ================= */
+
+  function burst(x, y, n, col, speed, size) {
+    if (calm) n = Math.ceil(n / 3);
+    for (let k = 0; k < n; k++) {
+      const a = Math.random() * TAU, e = (Math.random() - 0.5) * 1.8, v = speed * (0.3 + Math.random() * 0.7);
+      G.sparks.push({
+        x, y, z: 0, vx: Math.cos(a) * Math.cos(e) * v, vy: Math.sin(a) * Math.cos(e) * v, vz: Math.sin(e) * v * 0.8,
+        life: 0, max: 0.4 + Math.random() * 0.55, col, size: size || 2.4
+      });
+    }
+  }
+
+  function pop(x, y, text, o) {
+    G.pops.push({ x, y, text, col: o.col || C.chalk, size: o.size || 13, italic: !!o.italic, row: o.row || 0, life: -(o.delay || 0), max: o.max || 1 });
+  }
+
+  function slowmo(seconds, k) {
+    if (calm) return;
+    G.slow = seconds;
+    G.slowK = k;
+  }
+
+  function emit(type, d) {
+    const c = G.comet;
+    switch (type) {
+      case 'release':
+        if (!d.auto) Snd.noise({ f: 900, to: 2800, dur: 0.17, gain: 0.1, q: 0.8 });
+        burst(c.x, c.y, 5, G.flow ? C.comet : C.chalk, 70, 2);
+        if (!tips.released) { tips.released = true; hint(''); }
+        break;
+
+      case 'capture': {
+        const s = d.s;
+        s.pop = 1;
+        G.ripples.push({ x: s.x, y: s.y, r: s.R, grow: 34, life: 0, max: 0.5, col: C.chalk });
+        burst(c.x, c.y, d.isNew ? 12 + G.flow * 3 : 6, G.flow ? C.comet : C.chalk, 110);
+        G.kick = d.centre ? 0.09 : 0.05;
+        slowmo(d.centre ? 0.11 : 0.05, 0.3);
+        if (d.centre) {
+          G.ripples.push({ x: s.x, y: s.y, r: s.body, grow: s.R + 34, life: 0, max: 0.6, col: C.comet });
+          G.flash = 0.4;
+          G.flashCol = C.chalk;
+        }
+        if (d.isNew) {
+          pop(s.x, s.y, '+' + fmt(d.pts), { col: C.comet, size: 16 });
+          d.tags.forEach((tag, k) => pop(s.x, s.y, tag, { italic: true, size: 19, row: k + 1, delay: 0.07 * (k + 1), max: 1.2 }));
+          Snd.pluck(G.flow < MAX_FLOW ? G.flow : MAX_FLOW + (s.i % 4), d.centre);
+          if (!G.beatHi && rec.hi > 0 && G.score > rec.hi) {
+            G.beatHi = true;
+            pop(s.x, s.y, 'New best', { italic: true, size: 19, col: C.comet, row: d.tags.length + 1, delay: 0.3, max: 1.6 });
+            Snd.tone(1174.66, { dur: 0.5, gain: 0.07, wet: 0.9, at: 0.25 });
+            Snd.tone(1567.98, { dur: 0.7, gain: 0.07, wet: 0.9, at: 0.37 });
+          }
+          if (!tips.flow) {
+            tips.flow = true;
+            hint('Leave on the first lap for flow', 4500);
+          }
+        } else {
+          Snd.tone(196, { type: 'triangle', dur: 0.3, gain: 0.14, wet: 0.4 });
+          if (d.lost) emit('flowlost', {});
+        }
+        paintHud(false);
+        Snd.mood();
+        break;
+      }
+
+      case 'flowlost':
+        pop(c.x, c.y, 'Flow lost', { italic: true, size: 17, col: C.ember });
+        Snd.tone(392, { to: 311, type: 'triangle', dur: 0.2, gain: 0.09, wet: 0.4 });
+        paintHud(false);
+        Snd.mood();
+        break;
+
+      case 'knock':
+        G.shake = Math.max(G.shake, 5);
+        G.rail[d.side] = 1;
+        burst(c.x, c.y, 8, C.chalk, 90, 2);
+        Snd.tone(190, { to: 92, type: 'triangle', dur: 0.09, gain: 0.22 });
+        break;
+
+      case 'fuse':
+        Snd.tone(1250 + (1.5 - d.left) * 320, { type: 'square', dur: 0.035, gain: 0.028 });
+        break;
+
+      case 'supernova': {
+        const s = d.s;
+        G.shells.push({ x: s.x, y: s.y, r: s.body, grow: 190, life: 0, max: 0.9, col: C.ember });
+        G.shells.push({ x: s.x, y: s.y, r: s.body * 0.6, grow: 90, life: 0, max: 0.5, col: C.chalk });
+        G.ripples.push({ x: s.x, y: s.y, r: 8, grow: 210, life: 0, max: 0.9, col: C.ember });
+        burst(s.x, s.y, 46, C.ember, 260, 3);
+        burst(s.x, s.y, 16, C.chalk, 150);
+        G.shake = 16;
+        G.flash = 0.6;
+        G.flashCol = C.ember;
+        pop(s.x, s.y, s.name + ' burned out', { italic: true, size: 18, col: C.ember, max: 1.4 });
+        Snd.noise({ type: 'lowpass', f: 3200, to: 110, dur: 0.9, gain: 0.3, wet: 0.6 });
+        Snd.tone(140, { to: 38, dur: 0.8, gain: 0.26 });
+        break;
+      }
+
+      case 'plate': {
+        const info = PLATES[d.plate] || OFF_CHART;
+        banner(info[0], info[1]);
+        G.tint = { from: tintNow(), to: TINTS[d.plate % TINTS.length], t: 0 };
+        [293.66, 440, 587.33, 739.99].forEach((f, k) => Snd.tone(f, { dur: 1.7, attack: 0.35, gain: 0.045, wet: 0.9, at: 0.15 + k * 0.09 }));
+        break;
+      }
+
+      case 'die':
+        if (d.kind === 'blot') {
+          G.ripples.push({ x: c.x, y: c.y, r: 4, grow: 50, life: 0, max: 0.5, col: C.chalk });
+          burst(c.x, c.y, 18, C.chalk, 120);
+          Snd.noise({ type: 'lowpass', f: 1400, to: 90, dur: 0.6, gain: 0.25, wet: 0.5 });
+        }
+        G.shake = Math.max(G.shake, 8);
+        Snd.tone(220, { to: 104, type: 'triangle', dur: 0.8, gain: 0.16, wet: 0.8 });
+        Snd.tone(164.81, { to: 78, type: 'sine', dur: 0.9, gain: 0.14, wet: 0.8, at: 0.07 });
+        finish();
+        break;
+    }
+  }
+
+  function finish() {
+    const isBest = G.score > rec.hi;
+    if (isBest) { rec.hi = G.score; store.set('perihelion.hi', String(rec.hi)); }
+    if (G.reached > rec.far) { rec.far = G.reached; store.set('perihelion.far', String(rec.far)); }
+    G.shown = G.score;
+    $('over-cause').textContent = G.cause;
+    $('over-score').textContent = fmt(G.score);
+    $('over-flag').hidden = !(isBest && G.score > 0);
+    const rows = [
+      ['Reached', G.reached ? starName(G.reached) + ', star ' + G.reached : 'Nowhere past Sol'],
+      ['Best flow', '×' + (1 + G.stats.bestFlow)],
+      ['Dead centres', String(G.stats.centres)],
+      ['Best score', fmt(rec.hi)]
+    ];
+    const dl = $('over-stats');
+    dl.textContent = '';
+    for (const [k, v] of rows) {
+      const dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = k;
+      dd.textContent = v;
+      dl.append(dt, dd);
+    }
+    showBest();
+    hint('');
+    setMode('dead');
+  }
+
+  function showBest() {
+    const el = $('best-title');
+    el.hidden = rec.hi <= 0;
+    el.textContent = rec.hi > 0 ? 'Best ' + fmt(rec.hi) + ' points, furthest ' + starName(rec.far) : '';
+  }
+
+  let hudScore = -1, hudFlow = -1, hudReach = -1;
+  function paintHud(force) {
+    const v = Math.round(G.shown);
+    if (force || v !== hudScore) { hudScore = v; $('score').textContent = fmt(v); }
+    if (force || G.reached !== hudReach) { hudReach = G.reached; $('reach').textContent = starName(G.reached); }
+    if (force || G.flow !== hudFlow) {
+      const el = $('mult');
+      el.hidden = G.flow === 0;
+      el.textContent = 'Flow ×' + (1 + G.flow);
+      if (!force && G.flow > hudFlow) {
+        el.classList.remove('bump');
+        void el.offsetWidth;
+        el.classList.add('bump');
+      }
+      hudFlow = G.flow;
+    }
+  }
+
+  function hint(text, ms) {
+    const el = $('hint');
+    clearTimeout(hintTimer);
+    if (!text) { el.classList.remove('on'); return; }
+    $('hint-text').textContent = text;
+    el.classList.add('on');
+    if (ms) hintTimer = setTimeout(() => el.classList.remove('on'), ms);
+  }
+
+  function openingHint() {
+    if (!tips.released) hint(G.coach ? 'Tap when the line meets a star' : 'Tap to let go');
+  }
+
+  function banner(name, sub) {
+    const el = $('banner');
+    $('banner-name').textContent = name;
+    $('banner-sub').textContent = sub;
+    el.classList.add('on');
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => el.classList.remove('on'), 2800);
+  }
+
+  function setPaused(on) {
+    if (!G || G.mode !== 'play' || G.paused === on) return;
+    G.paused = on;
+    document.body.dataset.paused = on ? '1' : '0';
+    lastT = null;
+    Snd.mood();
+    if (on) $('resume').focus({ preventScroll: true });
+  }
+
+  /* ================= Per-frame bookkeeping ================= */
+
+  function tintNow() {
+    const k = G.tint.t, e = k * k * (3 - 2 * k);
+    return [0, 1].map(j => [0, 1, 2].map(n => G.tint.from[j][n] + (G.tint.to[j][n] - G.tint.from[j][n]) * e));
+  }
+
+  function animate(dt) {
+    const c = G.comet;
+    G.camY += (G.camT - G.camY) * (1 - Math.exp(-dt * 4.5));
+    const tx = ((c.star ? c.star.x : c.x) - W / 2) * 0.55;
+    G.fx += (tx - G.fx) * (1 - Math.exp(-dt * 3));
+    G.kick *= Math.exp(-dt * 7);
+    G.shake *= Math.exp(-dt * 9);
+    G.flash *= Math.exp(-dt * 6);
+    G.rail[0] *= Math.exp(-dt * 5);
+    G.rail[1] *= Math.exp(-dt * 5);
+    if (G.tint.t < 1) G.tint.t = Math.min(1, G.tint.t + dt / 1.4);
+    for (const s of G.stars) if (s.pop > 0.001) s.pop *= Math.exp(-dt * 8);
+
+    G.tail = 0.34 + G.flow * 0.035;
+    while (G.trail.length && G.clock - G.trail[2] > G.tail) G.trail.splice(0, 3);
+    if (G.mode !== 'dead') {
+      G.trail.push(c.x, c.y, G.clock);
+      if (!c.star && !calm) {
+        G.sparks.push({
+          x: c.x, y: c.y, z: 0,
+          vx: -c.vx * 0.12 + (Math.random() - 0.5) * 50, vy: -c.vy * 0.12 + (Math.random() - 0.5) * 50, vz: (Math.random() - 0.5) * 50,
+          life: 0, max: 0.35, col: G.flow ? C.comet : C.chalk, size: 1.8
+        });
+      }
+    }
+
+    for (const p of G.sparks) {
+      p.life += dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+      p.vx *= 0.97; p.vy *= 0.97; p.vz *= 0.97;
+    }
+    G.sparks = G.sparks.filter(p => p.life < p.max);
+    for (const r of G.ripples) r.life += dt;
+    G.ripples = G.ripples.filter(r => r.life < r.max);
+    for (const r of G.shells) r.life += dt;
+    G.shells = G.shells.filter(r => r.life < r.max);
+    for (const p of G.pops) p.life += dt;
+    G.pops = G.pops.filter(p => p.life < p.max);
+
+    if (G.shown !== G.score) {
+      G.shown += (G.score - G.shown) * (1 - Math.exp(-dt * 12));
+      if (Math.abs(G.score - G.shown) < 0.6) G.shown = G.score;
+      paintHud(false);
+    }
+
+    const coaching = G.coach && G.reached < 3 && G.mode === 'play';
+    G.aim = c.star && (coaching || TEST) ? castAim() : null;
+    G.aimLit = coaching && G.aim && G.aim.star && G.aim.star.i > G.reached ? G.aim : null;
+
+    ensureStars();
+  }
+
+  /* ================= The 3D scene =================
+     The scene is redrawn from the game state every frame. Nothing here changes the rules.
+     Chart (x, y) maps to world (x - 200, 0, y): x across, y into the distance. */
+
+  const S3 = { ok: false, snap: true, stamp: 0, views: [], blotViews: [], time: { value: 0 } };
+  const RGB = {};
+  function rgbOf(col) {
+    if (!RGB[col]) { const c = new THREE.Color(col); RGB[col] = [c.r, c.g, c.b]; }
+    return RGB[col];
+  }
+
+  function texFrom(w, h, paint) {
+    const cv = document.createElement('canvas');
+    cv.width = w;
+    cv.height = h;
+    paint(cv.getContext('2d'), w, h);
+    return new THREE.CanvasTexture(cv);
+  }
+
+  function radialTex(size, stops) {
+    return texFrom(size, size, g => {
+      const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+      for (const [at, col] of stops) grad.addColorStop(at, col);
+      g.fillStyle = grad;
+      g.fillRect(0, 0, size, size);
+    });
+  }
+
+  /* A glowing body: bright core, coloured limb, slow surface shimmer. */
+  function bodyMaterial(core, rim, shimmer) {
+    const T = THREE;
+    const mat = new T.ShaderMaterial({
+      uniforms: T.UniformsUtils.merge([T.UniformsLib.fog, {
+        uCore: { value: new T.Color(core) }, uRim: { value: new T.Color(rim) },
+        uGain: { value: 1 }, uShimmer: { value: shimmer }, uTime: { value: 0 }
+      }]),
+      vertexShader: [
+        '#include <fog_pars_vertex>',
+        'varying vec3 vN; varying vec3 vV; varying vec3 vP;',
+        'void main() {',
+        '  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);',
+        '  vN = normalize(normalMatrix * normal);',
+        '  vV = normalize(-mvPosition.xyz);',
+        '  vP = position;',
+        '  gl_Position = projectionMatrix * mvPosition;',
+        '  #include <fog_vertex>',
+        '}'
+      ].join('\n'),
+      fragmentShader: [
+        'uniform vec3 uCore; uniform vec3 uRim; uniform float uGain; uniform float uShimmer; uniform float uTime;',
+        '#include <fog_pars_fragment>',
+        'varying vec3 vN; varying vec3 vV; varying vec3 vP;',
+        'void main() {',
+        '  float f = pow(1.0 - max(dot(normalize(vN), normalize(vV)), 0.0), 1.7);',
+        '  float n = sin(vP.y * 4.5 + sin(vP.x * 3.0 + uTime * 0.5) * 1.6 + uTime * 0.7);',
+        '  vec3 col = mix(uCore * uGain, uRim * min(1.0, uGain + 0.4), f) * (1.0 + n * uShimmer);',
+        '  gl_FragColor = vec4(col, 1.0);',
+        '  #include <fog_fragment>',
+        '}'
+      ].join('\n'),
+      fog: true
+    });
+    mat.uniforms.uTime = S3.time;
+    return mat;
+  }
+
+  /* Part of a hoop: everything outside the span is cut away. */
+  function arcMaterial(col) {
+    return new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: new THREE.Color(col) }, uStart: { value: 0 }, uSpan: { value: TAU }, uOpacity: { value: 1 } },
+      vertexShader: 'varying vec3 vP; void main() { vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: [
+        'uniform vec3 uColor; uniform float uStart; uniform float uSpan; uniform float uOpacity;',
+        'varying vec3 vP;',
+        'void main() {',
+        '  float d = mod(atan(vP.y, vP.x) - uStart, 6.28318530718);',
+        '  if (d > uSpan) discard;',
+        '  gl_FragColor = vec4(uColor, uOpacity);',
+        '}'
+      ].join('\n'),
+      transparent: true, depthWrite: false
+    });
+  }
+
+  function chartTexture() {
+    /* One tile is the full chart width by 200 units of length. */
+    const tex = texFrom(1024, 512, (g, w, h) => {
+      const u = w / W;
+      g.strokeStyle = 'rgba(237,242,244,0.16)';
+      g.lineWidth = 2;
+      g.beginPath();
+      for (const y of [1, h / 2]) { g.moveTo(0, y); g.lineTo(w, y); }
+      for (const x of [100, 200, 300]) { g.moveTo(x * u, 0); g.lineTo(x * u, h); }
+      g.stroke();
+      g.strokeStyle = 'rgba(237,242,244,0.5)';
+      g.beginPath();
+      for (let k = 0; k < 10; k++) {
+        const y = k * 20 * u + 1, len = (k % 5 === 0 ? 12 : 5) * u;
+        g.moveTo(0, y); g.lineTo(len, y);
+        g.moveTo(w, y); g.lineTo(w - len, y);
+      }
+      g.stroke();
+      const rnd = mulberry32(3);
+      for (let k = 0; k < 110; k++) {
+        const size = 1.5 + rnd() * 2.5;
+        g.fillStyle = 'rgba(237,242,244,' + (0.12 + rnd() * 0.4).toFixed(2) + ')';
+        g.fillRect(16 + rnd() * (w - 32), rnd() * h, size, size);
+      }
+      for (let k = 0; k < 7; k++) {
+        const x = rnd() * w, y = rnd() * h, r = 90 + rnd() * 120, light = k % 3 !== 0;
+        for (const oy of [-h, 0, h]) {
+          const grad = g.createRadialGradient(x, y + oy, 0, x, y + oy, r);
+          grad.addColorStop(0, light ? 'rgba(214,232,255,0.07)' : 'rgba(0,4,20,0.2)');
+          grad.addColorStop(1, light ? 'rgba(214,232,255,0)' : 'rgba(0,4,20,0)');
+          g.fillStyle = grad;
+          g.fillRect(0, 0, w, h);
+        }
+      }
+    });
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(1, 20);
+    tex.anisotropy = S3.renderer.capabilities.getMaxAnisotropy();
+    return tex;
+  }
+
+  function dynamicPoints(max, size) {
+    const T = THREE, geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.BufferAttribute(new Float32Array(max * 3), 3));
+    geo.setAttribute('color', new T.BufferAttribute(new Float32Array(max * 3), 3));
+    geo.setDrawRange(0, 0);
+    const pts = new T.Points(geo, new T.PointsMaterial({
+      size, map: S3.dotTex, vertexColors: true, blending: T.AdditiveBlending, transparent: true, depthWrite: false, fog: false
+    }));
+    pts.frustumCulled = false;
+    pts.userData.max = max;
+    S3.scene.add(pts);
+    return pts;
+  }
+
+  function initScene() {
+    const T = THREE;
+    const renderer = S3.renderer = new T.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    const scene = S3.scene = new T.Scene();
+    scene.background = new T.Color(0x061430);
+    scene.fog = new T.FogExp2(0x061430, FOG);
+    S3.camera = new T.PerspectiveCamera(FOV, 1, 20, 9000);
+    S3.pos = new T.Vector3();
+    S3.look = new T.Vector3();
+    S3.roll = 0;
+    S3.fov = FOV;
+    S3.v = new T.Vector3();
+
+    S3.glowTex = radialTex(128, [[0, 'rgba(255,255,255,1)'], [0.18, 'rgba(255,255,255,0.55)'], [0.5, 'rgba(255,255,255,0.12)'], [1, 'rgba(255,255,255,0)']]);
+    S3.dotTex = radialTex(64, [[0, 'rgba(255,255,255,1)'], [0.4, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']]);
+    S3.shadeTex = radialTex(128, [[0, 'rgba(0,0,0,0.62)'], [0.45, 'rgba(0,0,0,0.3)'], [1, 'rgba(0,0,0,0)']]);
+
+    S3.sphere = new T.SphereGeometry(1, 28, 18);
+    S3.hoop = new T.TorusGeometry(1, 0.018, 6, 128);
+    S3.band = new T.TorusGeometry(1, 0.03, 6, 128);
+    S3.fuseHoop = new T.TorusGeometry(1, 0.075, 6, 72);
+    S3.flat = new T.PlaneGeometry(1, 1);
+    S3.wave = new T.RingGeometry(0.965, 1, 96);
+
+    /* The sky: distant stars and a few soft clouds that stay with the camera. */
+    const sky = S3.sky = new T.Group();
+    scene.add(sky);
+    {
+      const n = 1600, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), rnd = mulberry32(5);
+      const pal = [rgbOf(C.chalk), rgbOf(C.ice), rgbOf(C.ember)];
+      for (let i = 0; i < n; i++) {
+        const u = rnd() * 2 - 1, a = rnd() * TAU, s = Math.sqrt(1 - u * u);
+        let x = s * Math.cos(a), y = u, z = s * Math.sin(a);
+        if (i % 5 < 2) {
+          /* Two in five crowd toward one tilted band, like the Milky Way. */
+          y *= 0.22;
+          const ty = y * 0.88 - x * 0.48, tx = y * 0.48 + x * 0.88, l = Math.hypot(tx, ty, z);
+          x = tx / l; y = ty / l; z = z / l;
+        }
+        pos.set([x * 4200, y * 4200, z * 4200], i * 3);
+        const b = 0.2 + Math.pow(rnd(), 3) * 0.8, pick = rnd(), c = pal[pick < 0.12 ? 1 : pick < 0.2 ? 2 : 0];
+        col.set([c[0] * b, c[1] * b, c[2] * b], i * 3);
+      }
+      const geo = new T.BufferGeometry();
+      geo.setAttribute('position', new T.BufferAttribute(pos, 3));
+      geo.setAttribute('color', new T.BufferAttribute(col, 3));
+      sky.add(new T.Points(geo, new T.PointsMaterial({ size: 1.7, sizeAttenuation: false, vertexColors: true, fog: false, depthWrite: false })));
+      S3.clouds = [];
+      for (const [x, y, z, size] of [[-0.7, 0.12, -0.7, 3600], [0.75, 0.3, -0.6, 3000], [0.1, 0.55, -0.85, 3400], [0, -0.5, -0.6, 4200]]) {
+        const sp = new T.Sprite(new T.SpriteMaterial({ map: S3.glowTex, blending: T.AdditiveBlending, transparent: true, opacity: 0.2, depthWrite: false, fog: false }));
+        const l = Math.hypot(x, y, z);
+        sp.position.set(x / l * 4000, y / l * 4000, z / l * 4000);
+        sp.scale.set(size, size, 1);
+        sky.add(sp);
+        S3.clouds.push(sp);
+      }
+    }
+
+    /* The chart: a strip of paper under the stars, with rails where the comet bounces. */
+    S3.paper = new T.Mesh(new T.PlaneGeometry(W, 4000), new T.MeshBasicMaterial({ color: 0x13376a }));
+    S3.paper.rotation.x = -Math.PI / 2;
+    S3.paper.position.y = -HOVER;
+    scene.add(S3.paper);
+    S3.lines = new T.Mesh(new T.PlaneGeometry(W, 4000), new T.MeshBasicMaterial({ map: chartTexture(), transparent: true, depthWrite: false }));
+    S3.lines.rotation.x = -Math.PI / 2;
+    S3.lines.position.y = -HOVER + 0.5;
+    S3.lines.renderOrder = -3;
+    scene.add(S3.lines);
+    S3.rails = [-1, 1].map(side => {
+      const rail = new T.Mesh(new T.BoxGeometry(1.8, 1.8, 4000), new T.MeshBasicMaterial({ color: C.chalk, transparent: true, opacity: 0.5 }));
+      rail.position.x = side * W / 2;
+      scene.add(rail);
+      const wall = new T.Mesh(new T.PlaneGeometry(4000, HOVER + 14), new T.MeshBasicMaterial({ color: C.chalk, transparent: true, opacity: 0.05, side: T.DoubleSide, depthWrite: false }));
+      wall.rotation.y = Math.PI / 2;
+      wall.position.set(side * W / 2, -HOVER / 2 + 7, 0);
+      scene.add(wall);
+      return { rail, wall };
+    });
+    S3.strip = [S3.paper, S3.lines, S3.rails[0].rail, S3.rails[0].wall, S3.rails[1].rail, S3.rails[1].wall];
+
+    /* Dust in the air, so speed can be felt. */
+    {
+      const n = 150, pos = new Float32Array(n * 3), rnd = mulberry32(9);
+      for (let i = 0; i < n; i++) pos.set([(rnd() - 0.5) * 760, -HOVER + 6 + rnd() * 190, -rnd() * 2000], i * 3);
+      const geo = new T.BufferGeometry();
+      geo.setAttribute('position', new T.BufferAttribute(pos, 3));
+      S3.motes = new T.Points(geo, new T.PointsMaterial({ size: 2.6, map: S3.dotTex, color: C.chalk, opacity: 0.5, blending: T.AdditiveBlending, transparent: true, depthWrite: false }));
+      S3.motes.frustumCulled = false;
+      scene.add(S3.motes);
+    }
+
+    /* The comet, its tail, and the dotted line ahead of it. */
+    S3.comet = new T.Mesh(S3.sphere, bodyMaterial('#fffbe8', C.comet, 0));
+    scene.add(S3.comet);
+    S3.cometGlow = new T.Sprite(new T.SpriteMaterial({ map: S3.glowTex, color: C.comet, blending: T.AdditiveBlending, transparent: true, depthWrite: false, fog: false }));
+    scene.add(S3.cometGlow);
+    S3.cometShade = new T.Mesh(S3.flat, new T.MeshBasicMaterial({ map: S3.shadeTex, transparent: true, depthWrite: false }));
+    S3.cometShade.rotation.x = -Math.PI / 2;
+    S3.cometShade.position.y = -HOVER + 1;
+    S3.cometShade.scale.set(34, 34, 1);
+    S3.cometShade.renderOrder = -2;
+    scene.add(S3.cometShade);
+
+    {
+      const max = 110, geo = new T.BufferGeometry(), idx = [];
+      geo.setAttribute('position', new T.BufferAttribute(new Float32Array(max * 2 * 3), 3));
+      geo.setAttribute('alpha', new T.BufferAttribute(new Float32Array(max * 2), 1));
+      for (let i = 0; i < max - 1; i++) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+      geo.setIndex(idx);
+      S3.trail = new T.Mesh(geo, new T.ShaderMaterial({
+        uniforms: { uColor: { value: new T.Color(C.chalk) } },
+        vertexShader: 'attribute float alpha; varying float vA; void main() { vA = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: 'uniform vec3 uColor; varying float vA; void main() { gl_FragColor = vec4(uColor, vA); }',
+        transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide
+      }));
+      S3.trail.frustumCulled = false;
+      S3.trail.userData.max = max;
+      scene.add(S3.trail);
+    }
+    S3.preview = dynamicPoints(96, 9);
+    S3.sparks = dynamicPoints(700, 6);
+
+    S3.lap = new T.Mesh(S3.band, arcMaterial(C.comet));
+    S3.lap.rotation.x = Math.PI / 2;
+    S3.lap.renderOrder = 2;
+    scene.add(S3.lap);
+
+    {
+      const geo = new T.BufferGeometry();
+      geo.setAttribute('position', new T.BufferAttribute(new Float32Array(40 * 2 * 3), 3));
+      S3.links = new T.LineSegments(geo, new T.LineBasicMaterial({ color: C.chalk, transparent: true, opacity: 0.4 }));
+      S3.links.frustumCulled = false;
+      scene.add(S3.links);
+    }
+
+    S3.waves = [];
+    for (let i = 0; i < 12; i++) {
+      const m = new T.Mesh(S3.wave, new T.MeshBasicMaterial({ transparent: true, blending: T.AdditiveBlending, side: T.DoubleSide, depthWrite: false, fog: false }));
+      m.rotation.x = -Math.PI / 2;
+      m.position.y = 0.4;
+      m.visible = false;
+      scene.add(m);
+      S3.waves.push(m);
+    }
+    S3.shells = [];
+    for (let i = 0; i < 4; i++) {
+      const m = new T.Mesh(S3.sphere, new T.MeshBasicMaterial({ transparent: true, blending: T.AdditiveBlending, depthWrite: false, fog: false }));
+      m.visible = false;
+      scene.add(m);
+      S3.shells.push(m);
+    }
+
+    canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); setPaused(true); });
+    S3.ok = true;
+  }
+
+  function starView(s) {
+    const T = THREE, k = KIND[s.kind], g = new T.Group();
+    const coreMat = bodyMaterial(k.core, k.rim, 0.07);
+    const core = new T.Mesh(S3.sphere, coreMat);
+    const ringMat = new T.MeshBasicMaterial({ color: tintOf(s.kind), transparent: true, opacity: 0.3, depthWrite: false });
+    const ring = new T.Mesh(S3.hoop, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.scale.setScalar(s.R);
+    const glowMat = new T.SpriteMaterial({ map: S3.glowTex, color: k.rim, blending: T.AdditiveBlending, transparent: true, depthWrite: false, fog: false });
+    const glow = new T.Sprite(glowMat);
+    const shade = new T.Mesh(S3.flat, new T.MeshBasicMaterial({ map: S3.shadeTex, transparent: true, depthWrite: false }));
+    shade.rotation.x = -Math.PI / 2;
+    shade.position.y = -HOVER + 1;
+    shade.scale.set(s.body * 5.5, s.body * 5.5, 1);
+    shade.renderOrder = -2;
+    const fuseMat = arcMaterial(C.chalk);
+    const fuse = new T.Mesh(S3.fuseHoop, fuseMat);
+    fuse.rotation.x = Math.PI / 2;
+    fuse.scale.setScalar(s.body + 8);
+    fuse.visible = false;
+    g.add(core, ring, glow, shade, fuse);
+    S3.scene.add(g);
+    return { g, core, coreMat, ring, ringMat, glow, glowMat, shade, fuse, fuseMat, stamp: 0 };
+  }
+
+  function blotView(b) {
+    const T = THREE, g = new T.Group();
+    const mat = bodyMaterial('#02040c', '#5a3fd0', 0);
+    mat.uniforms.uGain.value = 0.75;
+    for (let k = 0; k < 7; k++) {
+      const m = new T.Mesh(S3.sphere, mat);
+      const a = hash(b.seed + k * 3.3) * TAU, d = k === 0 ? 0 : b.r * (0.35 + hash(b.seed + k) * 0.45);
+      m.position.set(Math.cos(a) * d, (hash(b.seed + k * 5.1) - 0.5) * b.r * 0.9, Math.sin(a) * d);
+      m.scale.setScalar(b.r * (k === 0 ? 0.85 : 0.4 + hash(b.seed + k * 2.2) * 0.35));
+      g.add(m);
+    }
+    const shade = new T.Mesh(S3.flat, new T.MeshBasicMaterial({ map: S3.shadeTex, transparent: true, depthWrite: false }));
+    shade.rotation.x = -Math.PI / 2;
+    shade.position.set(b.x - W / 2, -HOVER + 1, b.y);
+    shade.scale.set(b.r * 6, b.r * 6, 1);
+    shade.renderOrder = -2;
+    g.position.set(b.x - W / 2, 0, b.y);
+    S3.scene.add(g, shade);
+    return { g, shade, mat, stamp: 0 };
+  }
+
+  const fogAt = d => Math.exp(-(FOG * d) * (FOG * d));
+  const outBack = t => { const k = t - 1; return 1 + k * k * (2.7 * k + 1.7); };
+
+  function syncStars() {
+    const c = G.comet, cam = S3.camera.position;
+    S3.stamp++;
+    for (const s of G.stars) {
+      const v = s.view || (S3.views.push(s.view = starView(s)), s.view);
+      v.stamp = S3.stamp;
+      const wx = s.x - W / 2;
+      v.g.position.set(wx, 0, s.y);
+      const far = fogAt(Math.hypot(wx - cam.x, cam.y, s.y - cam.z));
+      const current = s === c.star;
+      const low = s.fuse < s.fuse0 * 0.3;
+      const throb = low ? 0.6 + 0.4 * Math.sin(G.t * 22) : 1;
+
+      if (s.dead) {
+        v.core.visible = v.ring.visible = v.fuse.visible = v.shade.visible = false;
+        v.glowMat.color.set(C.ember);
+        v.glowMat.opacity = 0.22 * far;
+        v.glow.scale.set(s.body * 4, s.body * 4, 1);
+        continue;
+      }
+
+      const breathe = current && !calm ? 1 + 0.05 * Math.sin(G.t * 6) : 1;
+      v.core.scale.setScalar(s.body * breathe * (1 + s.pop * 0.5));
+      v.coreMat.uniforms.uGain.value = (s.charted ? 1 : 0.42) * throb;
+
+      const lit = G.aimLit && G.aimLit.star === s;
+      v.ringMat.color.set(lit ? C.comet : low ? C.ember : tintOf(s.kind));
+      v.ringMat.opacity = lit ? 0.75 + 0.25 * Math.sin(G.clock * 14) : (current ? 0.85 : s.charted ? 0.5 : 0.34) * throb;
+      v.ring.scale.setScalar(s.R * (lit ? 1.02 : 1));
+
+      const size = s.body * (s.charted ? 8 : 5) * (1 + s.pop * 0.6);
+      v.glow.scale.set(size, size, 1);
+      v.glowMat.opacity = (s.charted ? 0.6 : 0.26) * far * throb;
+
+      v.fuse.visible = s.fuse < s.fuse0;
+      if (v.fuse.visible) {
+        v.fuseMat.uniforms.uColor.value.set(low ? C.ember : C.chalk);
+        v.fuseMat.uniforms.uStart.value = -Math.PI / 2;
+        v.fuseMat.uniforms.uSpan.value = TAU * clamp(s.fuse / s.fuse0, 0, 1);
+        v.fuseMat.uniforms.uOpacity.value = 0.95 * throb;
+      }
+    }
+    for (let i = S3.views.length - 1; i >= 0; i--) {
+      const v = S3.views[i];
+      if (v.stamp === S3.stamp) continue;
+      S3.scene.remove(v.g);
+      v.coreMat.dispose(); v.ringMat.dispose(); v.glowMat.dispose(); v.fuseMat.dispose(); v.shade.material.dispose();
+      S3.views.splice(i, 1);
+    }
+
+    for (const b of G.blots) {
+      const v = b.view || (S3.blotViews.push(b.view = blotView(b)), b.view);
+      v.stamp = S3.stamp;
+      if (!calm) v.g.rotation.y = G.clock * 0.25 + b.seed;
+    }
+    for (let i = S3.blotViews.length - 1; i >= 0; i--) {
+      const v = S3.blotViews[i];
+      if (v.stamp === S3.stamp) continue;
+      S3.scene.remove(v.g, v.shade);
+      v.mat.dispose(); v.shade.material.dispose();
+      S3.blotViews.splice(i, 1);
+    }
+  }
+
+  function syncComet() {
+    const c = G.comet, s = c.star;
+    const alive = G.mode !== 'dead';
+    const fade = s ? 1 : clamp((RANGE - c.flown) / 150, 0, 1);
+    const wx = c.x - W / 2;
+    S3.comet.visible = S3.cometGlow.visible = S3.cometShade.visible = alive;
+    S3.comet.position.set(wx, 0, c.y);
+    S3.comet.scale.setScalar(5.4 * (0.4 + 0.6 * fade));
+    S3.cometGlow.position.set(wx, 0, c.y);
+    const size = (54 + G.flow * 7) * (0.5 + 0.5 * fade);
+    S3.cometGlow.scale.set(size, size, 1);
+    S3.cometGlow.material.opacity = 0.9 * fade;
+    S3.cometShade.position.x = wx;
+    S3.cometShade.position.z = c.y;
+    S3.cometShade.material.opacity = fade;
+
+    /* Tail: a flat ribbon that narrows and fades away from the head. */
+    const tr = G.trail, n = Math.min(tr.length / 3, S3.trail.userData.max);
+    const first = tr.length / 3 - n;
+    const pos = S3.trail.geometry.attributes.position, al = S3.trail.geometry.attributes.alpha;
+    for (let k = 0; k < n; k++) {
+      const i = (first + k) * 3;
+      const a = Math.max(first * 3, i - 3), b = Math.min(tr.length - 3, i + 3);
+      let dx = tr[b] - tr[a], dz = tr[b + 1] - tr[a + 1];
+      const l = Math.hypot(dx, dz) || 1;
+      dx /= l; dz /= l;
+      const f = clamp(1 - (G.clock - tr[i + 2]) / G.tail, 0, 1), w = 0.3 + f * (3 + G.flow * 0.45);
+      const x = tr[i] - W / 2, z = tr[i + 1];
+      pos.setXYZ(k * 2, x - dz * w, 0, z + dx * w);
+      pos.setXYZ(k * 2 + 1, x + dz * w, 0, z - dx * w);
+      const alpha = f * f * 0.62 * fade;
+      al.setX(k * 2, alpha);
+      al.setX(k * 2 + 1, alpha);
+    }
+    pos.needsUpdate = al.needsUpdate = true;
+    S3.trail.geometry.setDrawRange(0, Math.max(0, (n - 1) * 6));
+    S3.trail.material.uniforms.uColor.value.set(G.flow ? C.comet : C.chalk);
+
+    /* The lap still open for flow: a gold arc ahead of the comet, eaten as it goes. */
+    const lapOn = alive && s && c.lapOpen && s.i > 0 && G.mode === 'play';
+    S3.lap.visible = !!lapOn;
+    if (lapOn) {
+      const left = Math.min(lapOf(s) - c.swept, TAU - 0.001);
+      S3.lap.visible = left > 0;
+      S3.lap.position.set(s.x - W / 2, 0.6, s.y);
+      S3.lap.scale.setScalar(s.R);
+      S3.lap.material.uniforms.uStart.value = c.dir > 0 ? c.ang : c.ang - left;
+      S3.lap.material.uniforms.uSpan.value = left;
+    }
+
+    /* The dotted line: where the comet would go if it let go now. */
+    const pp = S3.preview.geometry.attributes.position, pc = S3.preview.geometry.attributes.color;
+    let count = 0;
+    if (s && alive) {
+      const lit = !!G.aimLit, len = lit ? G.aimLit.d : Math.max(130, 250 - s.i * 4);
+      const gold = rgbOf(C.comet), gap = lit ? 8 : 11, max = S3.preview.userData.max;
+      let x = c.x, y = c.y, dx = -Math.sin(c.ang) * c.dir, dy = Math.cos(c.ang) * c.dir;
+      let run = calm ? 7 : 7 + (G.clock * 46) % gap, done = 0;
+      for (let leg = 0; leg < 4 && done < len - 0.5; leg++) {
+        let reach = len - done;
+        if (dx > 1e-6) reach = Math.min(reach, (W - WALL - x) / dx);
+        else if (dx < -1e-6) reach = Math.min(reach, (WALL - x) / dx);
+        reach = Math.max(0, reach);
+        for (; run < reach && count < max; run += gap) {
+          const a = lit ? 1 : 1 - 0.85 * (done + run) / len;
+          pp.setXYZ(count, x + dx * run - W / 2, 0, y + dy * run);
+          pc.setXYZ(count, gold[0] * a, gold[1] * a, gold[2] * a);
+          count++;
+        }
+        run -= reach;
+        x += dx * reach; y += dy * reach;
+        done += reach;
+        dx = -dx;
+      }
+    }
+    pp.needsUpdate = pc.needsUpdate = true;
+    S3.preview.geometry.setDrawRange(0, count);
+    S3.preview.material.size = G.aimLit ? 12 : 9;
+  }
+
+  function syncEffects() {
+    const sp = S3.sparks.geometry.attributes.position, sc = S3.sparks.geometry.attributes.color;
+    const n = Math.min(G.sparks.length, S3.sparks.userData.max);
+    for (let i = 0; i < n; i++) {
+      const p = G.sparks[i], k = 1 - p.life / p.max, col = rgbOf(p.col);
+      sp.setXYZ(i, p.x - W / 2, p.z, p.y);
+      sc.setXYZ(i, col[0] * k, col[1] * k, col[2] * k);
+    }
+    sp.needsUpdate = sc.needsUpdate = true;
+    S3.sparks.geometry.setDrawRange(0, n);
+
+    S3.waves.forEach((m, i) => {
+      const r = G.ripples[i];
+      m.visible = !!r;
+      if (!r) return;
+      const f = r.life / r.max, size = r.r + (1 - (1 - f) * (1 - f)) * r.grow;
+      m.position.x = r.x - W / 2;
+      m.position.z = r.y;
+      m.scale.set(size, size, 1);
+      m.material.color.set(r.col);
+      m.material.opacity = 0.75 * (1 - f);
+    });
+    S3.shells.forEach((m, i) => {
+      const r = G.shells[i];
+      m.visible = !!r;
+      if (!r) return;
+      const f = r.life / r.max;
+      m.position.set(r.x - W / 2, 0, r.y);
+      m.scale.setScalar(r.r + (1 - (1 - f) * (1 - f)) * r.grow);
+      m.material.color.set(r.col);
+      m.material.opacity = 0.42 * (1 - f) * (1 - f);
+    });
+
+    const lp = S3.links.geometry.attributes.position;
+    let seg = 0;
+    for (const l of G.links) {
+      if (seg >= 40) break;
+      const dx = l.b.x - l.a.x, dy = l.b.y - l.a.y, len = Math.hypot(dx, dy);
+      const from = l.a.R + 7, to = len - l.b.R - 7;
+      if (to <= from) continue;
+      const ux = dx / len, uy = dy / len, end = from + (to - from) * clamp((G.t - l.t0) / 0.5, 0, 1);
+      lp.setXYZ(seg * 2, l.a.x + ux * from - W / 2, 0, l.a.y + uy * from);
+      lp.setXYZ(seg * 2 + 1, l.a.x + ux * end - W / 2, 0, l.a.y + uy * end);
+      seg++;
+    }
+    lp.needsUpdate = true;
+    S3.links.geometry.setDrawRange(0, seg * 2);
+  }
+
+  function syncWorld() {
+    const tint = tintNow(), paper = tint[0], dark = tint[1];
+    S3.scene.background.setRGB(dark[0] / 255, dark[1] / 255, dark[2] / 255);
+    S3.scene.fog.color.copy(S3.scene.background);
+    S3.paper.material.color.setRGB(paper[0] / 255, paper[1] / 255, paper[2] / 255);
+    for (const sp of S3.clouds) sp.material.color.setRGB(paper[0] / 255 * 1.5, paper[1] / 255 * 1.5, paper[2] / 255 * 1.5);
+
+    /* The strip moves in whole tiles, so its pattern never appears to slide. */
+    const z = Math.round((G.camY - 1500) / 200) * 200;
+    for (const m of S3.strip) m.position.z = z;
+    S3.rails.forEach((r, i) => {
+      r.rail.material.opacity = 0.5 + G.rail[i] * 0.5;
+      r.wall.material.opacity = 0.05 + G.rail[i] * 0.3;
+    });
+
+    /* Dust wraps around so there is always some ahead. */
+    const mp = S3.motes.geometry.attributes.position;
+    let moved = false;
+    for (let i = 0; i < mp.count; i++) {
+      const mz = mp.getZ(i);
+      if (mz > G.camY + 500) { mp.setZ(i, mz - 2000); moved = true; }
+      else if (mz < G.camY - 1500) { mp.setZ(i, mz + 2000); moved = true; }
+    }
+    if (moved) mp.needsUpdate = true;
+  }
+
+  function syncCamera(dt) {
+    const c = G.comet, cam = S3.camera;
+    const flying = !c.star && G.mode === 'play';
+    let gx, gy, gz, lx, lz, fov = FOV;
+    if (G.mode === 'title') {
+      const a = calm ? 0.6 : G.clock * 0.2 + 0.6, r = V.dist * 0.6;
+      gx = Math.sin(a) * r; gy = V.dist * 0.36; gz = Math.cos(a) * r;
+      lx = 0; lz = -30;
+    } else {
+      const crane = G.mode === 'dead' && !calm ? Math.min(1, (G.clock - G.deadAt) * 0.3) : 0;
+      const k = (1 - G.kick * 1.2) * (flying && !calm ? 0.95 : 1) * (1 + crane * 0.22);
+      gx = G.fx; gy = V.H * k; gz = G.camY + V.D * k;
+      lx = G.fx; lz = G.camY - V.L;
+      if (flying && !calm) fov = FOV + 5;
+    }
+    const swoop = G.clock - G.startAt < 1.8;
+    const e = S3.snap ? 1 : 1 - Math.exp(-dt * (swoop ? 3 : 10));
+    S3.pos.x += (gx - S3.pos.x) * e; S3.pos.y += (gy - S3.pos.y) * e; S3.pos.z += (gz - S3.pos.z) * e;
+    S3.look.x += (lx - S3.look.x) * e; S3.look.z += (lz - S3.look.z) * e;
+    S3.snap = false;
+
+    const speed = Math.hypot(c.vx, c.vy) || 1;
+    const rollTo = flying && !calm ? -c.vx / speed * 0.07 : 0;
+    S3.roll += (rollTo - S3.roll) * (1 - Math.exp(-dt * 5));
+    S3.fov += (fov - S3.fov) * (1 - Math.exp(-dt * 5));
+
+    const sh = calm ? 0 : G.shake;
+    cam.position.set(S3.pos.x + (Math.random() - 0.5) * sh, S3.pos.y + (Math.random() - 0.5) * sh, S3.pos.z);
+    cam.up.set(Math.sin(S3.roll), Math.cos(S3.roll), 0);
+    cam.lookAt(S3.look.x, 0, S3.look.z);
+    if (Math.abs(cam.fov - S3.fov) > 0.01) { cam.fov = S3.fov; cam.updateProjectionMatrix(); }
+    S3.sky.position.copy(cam.position);
+  }
+
+  const P0 = { x: 0, y: 0 }, P1 = { x: 0, y: 0 };
+  function project(x, y, z, out) {
+    const v = S3.v.set(x, y, z).project(S3.camera);
+    out.x = (v.x * 0.5 + 0.5) * V.w;
+    out.y = (-v.y * 0.5 + 0.5) * V.h;
+    return v.z > -1 && v.z < 1;
+  }
+
+  /* Words that belong to things in the scene, drawn flat on top of it. */
+  function drawInk() {
+    const cam = S3.camera.position;
+    ink.setTransform(V.dpr, 0, 0, V.dpr, 0, 0);
+    ink.clearRect(0, 0, V.w, V.h);
+    ink.textBaseline = 'alphabetic';
+
+    for (const s of G.stars) {
+      if (!s.charted) continue;
+      const wx = s.x - W / 2, d = Math.hypot(wx - cam.x, cam.y, s.y - cam.z);
+      if (d > 2000 || !project(wx, 0, s.y, P0)) continue;
+      project(wx + (s.labelRight ? s.R : -s.R), 0, s.y, P1);
+      const ppu = Math.abs(P1.x - P0.x) / s.R;
+      if (ppu < 0.3) continue;
+      const k = clamp(ppu / 0.9, 0.5, 1.2);
+      const a = clamp((G.t - s.inkT) / 0.4, 0, 1) * fogAt(d) * (s.dead ? 0.45 : 1);
+      ink.fillStyle = C.chalk;
+      ink.globalAlpha = a;
+      ink.font = 'italic ' + (16 * k).toFixed(1) + 'px ' + F_DISPLAY;
+      const wide = ink.measureText(s.name).width;
+      let lx = P1.x + (s.labelRight ? 10 : -10) * k;
+      lx = s.labelRight ? Math.min(lx, V.w - 8 - wide) : Math.max(lx, 8 + wide);
+      ink.textAlign = s.labelRight ? 'left' : 'right';
+      ink.fillText(s.name, lx, P0.y + 3 * k);
+      if (s.sub && k > 0.72) {
+        ink.globalAlpha = a * 0.66;
+        ink.font = (9.5 * k).toFixed(1) + 'px ' + F_MONO;
+        ink.fillText(s.sub, lx, P0.y + 17 * k);
+        ink.fillText('mag ' + s.mag.toFixed(2).replace('-', '−'), lx, P0.y + 29 * k);
+      }
+    }
+
+    ink.textAlign = 'center';
+    for (const b of G.blots) {
+      const wx = b.x - W / 2, d = Math.hypot(wx - cam.x, cam.y, b.y - cam.z);
+      if (d > 1400 || !project(wx, -b.r - 6, b.y, P0)) continue;
+      ink.globalAlpha = 0.6 * fogAt(d);
+      ink.fillStyle = C.chalk;
+      ink.font = 'italic 12px ' + F_DISPLAY;
+      ink.fillText(b.name, P0.x, P0.y + 16);
+    }
+
+    for (const p of G.pops) {
+      if (p.life < 0 || !project(p.x - W / 2, 26, p.y, P0)) continue;
+      const f = p.life / p.max;
+      ink.globalAlpha = 1 - f * f * f;
+      ink.fillStyle = p.col;
+      ink.font = p.italic ? 'italic ' + p.size + 'px ' + F_DISPLAY : '500 ' + p.size + 'px ' + F_MONO;
+      ink.fillText(p.text, clamp(P0.x, 70, V.w - 70), P0.y - 22 - p.row * 21 - (1 - (1 - f) * (1 - f)) * 26);
+    }
+
+    if (G.flash > 0.01 && !calm) {
+      ink.globalAlpha = G.flash * 0.3;
+      ink.fillStyle = G.flashCol;
+      ink.fillRect(0, 0, V.w, V.h);
+    }
+    ink.globalAlpha = 1;
+  }
+
+  function draw(dt) {
+    S3.time.value = G.clock;
+    syncCamera(dt);
+    syncWorld();
+    syncStars();
+    syncComet();
+    syncEffects();
+    S3.renderer.render(S3.scene, S3.camera);
+    drawInk();
+  }
+
+  function resize() {
+    V.w = window.innerWidth;
+    V.h = window.innerHeight;
+    V.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const aspect = V.w / Math.max(1, V.h);
+    /* Pull the camera back until the whole chart width fits at the star being circled. */
+    V.dist = clamp(450 / (2 * Math.tan(FOV * Math.PI / 360) * aspect), 560, 980);
+    V.H = V.dist * Math.sin(ELEV);
+    V.D = V.dist * Math.cos(ELEV);
+    V.L = V.dist * 0.28;
+    inkCanvas.width = Math.max(1, Math.round(V.w * V.dpr));
+    inkCanvas.height = Math.max(1, Math.round(V.h * V.dpr));
+    if (S3.ok) {
+      S3.renderer.setPixelRatio(V.dpr);
+      S3.renderer.setSize(V.w, V.h, false);
+      S3.camera.aspect = aspect;
+      S3.camera.updateProjectionMatrix();
+      S3.snap = true;
+    }
+  }
+
+  function drawKey() {
+    for (const cv of document.querySelectorAll('.key canvas')) {
+      const g = cv.getContext('2d'), kind = cv.dataset.kind, k = KIND[kind];
+      const r = kind === 'red' ? 8.5 : kind === 'blue' ? 4.5 : 6;
+      g.setTransform(3, 0, 0, 3, 0, 0);
+      g.clearRect(0, 0, 24, 24);
+      g.globalAlpha = 0.28;
+      g.fillStyle = k.rim;
+      g.beginPath(); g.arc(12, 12, Math.min(12, r + 3.5), 0, TAU); g.fill();
+      g.globalAlpha = 1;
+      const grad = g.createRadialGradient(12 - r * 0.25, 12 - r * 0.25, 0, 12, 12, r);
+      grad.addColorStop(0, k.core);
+      grad.addColorStop(1, k.rim);
+      g.fillStyle = grad;
+      g.beginPath(); g.arc(12, 12, r, 0, TAU); g.fill();
+    }
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (window.innerWidth !== V.w || window.innerHeight !== V.h) resize();
+    if (lastT === null) lastT = now;
+    const raw = Math.min(0.05, (now - lastT) / 1000);
+    const real = raw * (TEST && TEST.speed ? TEST.speed : 1);
+    lastT = now;
+    if (!G.paused && !document.hidden) {
+      G.clock += real;
+      let k = 1;
+      if (G.slow > 0) { G.slow -= real; k = G.slowK; }
+      G.acc += real * k;
+      let n = 0;
+      while (G.acc >= STEP && n++ < 48) { tick(STEP); G.acc -= STEP; }
+      if (n >= 48) G.acc = 0;
+      animate(real);
+    }
+    draw(G.paused ? 0 : real);
+  }
+
+  /* ================= Input ================= */
+
+  function toggleSound() {
+    Snd.setMuted(!Snd.muted);
+    paintSound();
+    store.set('perihelion.muted', Snd.muted ? '1' : '0');
+    if (!Snd.muted) { Snd.unlock(); Snd.tone(587.33, { to: 880, type: 'triangle', dur: 0.14, gain: 0.12, wet: 0.5 }); }
+  }
+
+  function paintSound() {
+    const btn = $('sound');
+    btn.setAttribute('aria-pressed', String(!Snd.muted));
+    btn.textContent = Snd.muted ? 'Sound off' : 'Sound on';
+  }
+
+  function wire() {
+    document.addEventListener('pointerdown', e => {
+      if (e.target.closest('button')) return;
+      act();
+    });
+    for (const type of ['pointerup', 'touchend', 'click']) {
+      document.addEventListener(type, () => Snd.unlock(), { passive: true });
+    }
+    document.addEventListener('keydown', e => {
+      if (e.code === 'Escape' || e.code === 'KeyP') {
+        if (G.mode === 'play') setPaused(!G.paused);
+        return;
+      }
+      if (e.target.closest('button')) return;
+      if (e.code === 'Space' || e.code === 'Enter') {
+        e.preventDefault();
+        Snd.unlock();
+        if (!e.repeat) act();
+      }
+    });
+    for (const type of ['contextmenu', 'gesturestart', 'dblclick']) {
+      document.addEventListener(type, e => e.preventDefault());
+    }
+    $('sound').addEventListener('click', toggleSound);
+    $('pause-btn').addEventListener('click', () => setPaused(true));
+    $('resume').addEventListener('click', () => setPaused(false));
+    $('restart').addEventListener('click', () => { newGame('play'); lastT = null; });
+    document.addEventListener('visibilitychange', () => {
+      lastT = null;
+      if (document.hidden) setPaused(true);
+    });
+    window.addEventListener('resize', resize);
+  }
+
+  function fail(why) {
+    $('fail-why').textContent = why;
+    document.body.dataset.mode = 'fail';
+  }
+
+  function start(saved) {
+    if (!window.THREE) { fail('The 3D engine did not load. Check your connection, then reopen the game.'); return; }
+    try { initScene(); } catch (e) { fail('This browser would not start WebGL, which the 3D view needs.'); return; }
+
+    const num = v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+    rec.hi = Math.max(num(store.get('perihelion.hi')), num(saved && saved.hi));
+    rec.far = Math.max(num(store.get('perihelion.far')), num(saved && saved.far));
+    Snd.muted = store.get('perihelion.muted') === '1';
+    paintSound();
+
+    resize();
+    drawKey();
+    newGame('title');
+    showBest();
+    wire();
+
+    try {
+      document.fonts.load('italic 16px "IM Fell English"');
+      document.fonts.load('9.5px "DM Mono"');
+    } catch (e) { /* fallback faces are fine */ }
+
+    if (TEST) window.__perihelion = { state: () => G, act, aim: castAim, rec, S3 };
+    requestAnimationFrame(frame);
+  }
+
+  const hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) hot.snapshot(() => ({ hi: rec.hi, far: rec.far }));
+  if (hot && hot.ready) hot.ready(start);
+  else start((hot && hot.data) || {});
+})();
+</script>
+</body>
+</html>
