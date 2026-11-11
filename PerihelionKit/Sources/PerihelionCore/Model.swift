@@ -10,13 +10,13 @@ public struct Star: Sendable, Identifiable {
     public internal(set) var x: Double
     public let homeX: Double
     public let y: Double
-    public let radius: Double
-    public let spin: Double
+    public internal(set) var radius: Double
+    public internal(set) var spin: Double
     public let driftAmplitude: Double
     public let driftPhase: Double
     public let driftSpeed: Double
     public internal(set) var fuse: Double
-    public let fuseTotal: Double
+    public internal(set) var fuseTotal: Double
     public let glyph: Double
     public let labelOnRight: Bool
     public internal(set) var charted: Bool
@@ -110,6 +110,10 @@ public enum GameEvent: Equatable, Sendable {
     case supernova(star: Int)
     case plate(Int)
     case died(Death)
+    /// A miss that spent a life and put the comet back on the last star caught.
+    case lifeLost(Death)
+    /// A milestone restored one life, still capped at the run's starting count.
+    case lifeGained
 }
 
 public enum AimTarget: Sendable {

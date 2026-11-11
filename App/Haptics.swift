@@ -40,4 +40,12 @@ final class Haptics {
     func death() {
         notice.notificationOccurred(.error)
     }
+
+    func lifeLost() {
+        notice.notificationOccurred(.warning)
+    }
+
+    func lifeRestored() {
+        notice.notificationOccurred(.success)
+    }
 }

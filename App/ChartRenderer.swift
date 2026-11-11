@@ -424,7 +424,7 @@ enum ChartRenderer {
     private static func drawComet(_ g: GraphicsContext, session s: Session) {
         let game = s.game
         let c = game.comet
-        let fade = c.star != nil ? 1 : min(max((Tuning.range - c.flown) / 150, 0), 1)
+        let fade = c.star != nil ? 1 : min(max((game.options.cometRange - c.flown) / 150, 0), 1)
         let color = game.flow > 0 ? Palette.comet : Palette.chalk
         let n = s.trail.count
         if n > 1 {

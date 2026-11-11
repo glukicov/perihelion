@@ -86,14 +86,35 @@ private struct Overlays: View {
                     .transition(.opacity)
                     .allowsHitTesting(false)
             }
-            if session.paused {
+            if session.paused && !session.showsSettings {
                 PauseCard(session: session)
+            }
+            if session.showsSettings {
+                SettingsCard(session: session)
             }
         }
         .animation(.easeOut(duration: 0.35), value: game.mode)
         .animation(.easeOut(duration: 0.35), value: session.banner)
         .animation(.easeOut(duration: 0.35), value: session.hint)
         .animation(.easeOut(duration: 0.25), value: session.paused)
+        .animation(.easeOut(duration: 0.25), value: session.showsSettings)
+        .overlay(alignment: .topTrailing) {
+            if (game.mode == .title || game.mode == .dead) && !session.showsSettings && !session.paused {
+                Button { session.openSettings() } label: {
+                    Text("ADJUST")
+                        .font(Palette.mono(12, weight: .medium))
+                        .tracking(1.8)
+                        .foregroundStyle(Palette.chalk)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .overlay(Rectangle().stroke(Palette.chalk.opacity(0.7), lineWidth: 1.2))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Adjustments")
+                .padding(.trailing, 20)
+                .padding(.top, 16)
+            }
+        }
     }
 }
 
@@ -118,6 +139,8 @@ private struct HUD: View {
                     }
                     Text(Catalog.starName(game.reached))
                         .font(Palette.display(17))
+                    Lives(session: session)
+                        .padding(.top, 2)
                 }
                 .foregroundStyle(Palette.chalk)
                 .allowsHitTesting(false)
@@ -139,6 +162,25 @@ private struct HUD: View {
             .padding(.top, 6)
             Spacer()
         }
+    }
+}
+
+private struct Lives: View {
+    let session: Session
+
+    var body: some View {
+        let game = session.game
+        HStack(spacing: 5) {
+            ForEach(0..<game.maxLives, id: \.self) { index in
+                Image(systemName: index < game.lives ? "heart.fill" : "heart")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(index < game.lives ? Palette.comet : Palette.chalk.opacity(0.38))
+                    .scaleEffect(index == game.lives - 1 ? 1 + session.heartPulse * 0.4 : 1)
+                    .accessibilityHidden(true)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(game.lives) of \(game.maxLives) lives")
     }
 }
 
@@ -308,7 +350,103 @@ private struct PauseCard: View {
                     Button("Start over") { session.restart() }
                         .buttonStyle(ChartButton(primary: false))
                 }
+                Button("Adjust") { session.openSettings() }
+                    .buttonStyle(ChartButton(primary: false))
             }
+        }
+    }
+}
+
+private struct SettingsCard: View {
+    let session: Session
+
+    var body: some View {
+        let duringPlay = session.game.mode == .play
+        ZStack {
+            Color.black.opacity(0.46).ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 22) {
+                    Text("Adjustments")
+                        .font(Palette.display(44))
+                        .foregroundStyle(Palette.chalk)
+                    slider(
+                        "Difficulty",
+                        value: difficultyName,
+                        help: "Rings shrink, spin quickens, the fuse shortens and the launch speeds up as this rises. 1.00× is the original chart."
+                    ) {
+                        Slider(
+                            value: Binding(get: { session.settings.difficulty }, set: { session.setDifficulty($0) }),
+                            in: Tuning.difficultyMin...Tuning.difficultyMax
+                        )
+                    }
+                    slider(
+                        "Comet's reach",
+                        value: reachName,
+                        help: "How far the comet flies after you let go, before the dark takes it. 540 is the charted reach."
+                    ) {
+                        Slider(
+                            value: Binding(get: { session.settings.cometRange }, set: { session.setCometRange($0) }),
+                            in: Tuning.cometRangeMin...Tuning.cometRangeMax,
+                            step: 10
+                        )
+                    }
+                    slider(
+                        "Lives",
+                        value: "\(session.settings.startingLives)",
+                        help: "A miss spends a heart and returns you to the last star you caught. Every \(Tuning.lifeMilestone) stars gives one back, up to this number."
+                    ) {
+                        Slider(
+                            value: Binding(
+                                get: { Double(session.settings.startingLives) },
+                                set: { session.setStartingLives(Int($0.rounded())) }
+                            ),
+                            in: 1...Double(Tuning.maxStartingLives),
+                            step: 1
+                        )
+                    }
+                    Text(duringPlay
+                         ? "Reach and hearts change this run. Difficulty redraws the next chart."
+                         : "Difficulty redraws this chart when you close the panel.")
+                        .font(.custom("IowanOldStyle-Roman", size: 16))
+                        .foregroundStyle(Palette.chalkDim)
+                    Button("Done") { session.closeSettings() }
+                        .buttonStyle(ChartButton(primary: true))
+                        .padding(.top, 4)
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private var difficultyName: String {
+        let value = session.settings.difficulty
+        let name = abs(value - 1) < 0.025 ? "As charted" : value < 1 ? "Gentle" : "Harsh"
+        return "\(name) · \(String(format: "%.2f", value))×"
+    }
+
+    private var reachName: String {
+        let reach = Int(session.settings.cometRange.rounded())
+        return abs(session.settings.cometRange - Tuning.range) < 8 ? "\(reach) · charted" : "\(reach) units"
+    }
+
+    private func slider<Control: View>(_ title: String, value: String, help: String,
+                                       @ViewBuilder control: () -> Control) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title.uppercased())
+                    .font(Palette.mono(11))
+                    .tracking(1.6)
+                    .foregroundStyle(Palette.chalkDim)
+                Spacer()
+                Text(value)
+                    .font(Palette.display(20))
+                    .foregroundStyle(Palette.comet)
+            }
+            control()
+                .tint(Palette.comet)
+            Text(help)
+                .font(.custom("IowanOldStyle-Roman", size: 15))
+                .foregroundStyle(Palette.chalk)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

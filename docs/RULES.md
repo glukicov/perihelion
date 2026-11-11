@@ -70,4 +70,23 @@ overlapping either star's swept ring. Touching one ends the run.
 ## Events
 
 The rules talk to everything else through events: `release`, `capture`, `flowlost`, `knock`, `fuse`, `supernova`,
-`plate` and `die`. Sound, haptics, particles and the HUD listen; none of them can change the outcome.
+`plate`, `die`, `lifelost` and `lifegained`. Sound, haptics, particles and the HUD listen; none of them can change
+the outcome.
+
+## Lives and adjustments (the app)
+
+The web chart is unchanged. Replays ask the engine for `RunOptions.classic`: one life, difficulty 1, reach 540.
+The iPhone app loads `RunOptions` from `UserDefaults` (`perihelion.lives`, `perihelion.difficulty`,
+`perihelion.range`). Missing keys use the standard set: **3 lives**, difficulty 1, reach 540.
+
+- **Lives** are 1 to 9. A miss (the dark, the bottom of the chart, or a nebula) spends one heart and puts the comet
+  back on the furthest star caught, with the score, plate and charted stars kept and flow cleared. A star that had
+  just burned out is reignited with half its fuse, or one fair lap, whichever is longer. The run ends, and `die`
+  fires, only at zero hearts. Hearts sit under the star name, top left.
+- **A heart returns every 4 stars** reached (4, 8, 12, …), never above the number the run started with. Moving the
+  lives slider sets both the cap and the hearts you currently hold. Changing reach does not.
+- **Comet's reach** is `RANGE`: how far the comet flies after you let go before it is lost. 320 to 900 chart units,
+  540 on the original chart. This is what "how long the comet goes" means here. It is distance, not the fuse.
+- **Difficulty** runs from 0.70× to 1.35×. Above 1 the rings shrink, spin and launch speed rise, and the fuse
+  shortens, all by that factor. 1.00× is bit-for-bit the chart above. It applies to the next chart (the title chart
+  redraws when the panel closes), not to stars already placed in a run. Reach and hearts apply immediately.

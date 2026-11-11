@@ -44,7 +44,8 @@ iPhone app on top of it.
 - 🎯 **The aim line fibs after a wall bounce**, by a few units, because it folds at the walls differently from the real
   flight. Found by an autoplayer that trusted it and kept dying.
 - 📱 **The iPhone app is playable:** SwiftUI `Canvas` at up to 120 Hz, the full cyanotype chart, plates, nebulae,
-  flow, slow motion on catches, haptics, pause and saved records. Sound and Game Center are next.
+  flow, slow motion on catches, haptics, pause and saved records. Version 0.3.0 adds lives (3 by default), a heart
+  back every four stars, and sliders for difficulty and how far the comet flies. The full score and Game Center are next.
 
 **The long version is [`docs/WRITEUP.md`](docs/WRITEUP.md)**, and the full rules are in [`docs/RULES.md`](docs/RULES.md).
 
