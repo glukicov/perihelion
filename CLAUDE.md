@@ -16,6 +16,7 @@ Each is a single self-contained HTML file: open it in a browser, click or press 
 - **Done:** milestone two, a playable iPhone app in `App/` (SwiftUI `Canvas` driven by `CADisplayLink`, haptics, pause, records, app icon). Play-tested in the iPhone 17 simulator, including a debug autoplayer (`just autoplay`).
 - **Done:** sound (AVAudioEngine, the WebAudio synth including generated reverb), IM Fell English, DM Mono, and the rest of the 2D presentation.
 - **Done:** version 0.3.0, lives and a chart-adjustments panel. Default 3 lives, a heart back every 4 stars, difficulty and comet reach sliders saved in UserDefaults. The engine's classic one-life chart is what the replay fixtures still play. A life spent plays the flow-lost tone; a heart restored plays the chime.
+- **Done:** version 0.3.1 (App Store candidate): pause button hit area fixed (`contentShape`), solid settings panel, `vX (build)` label on the title screen, `privacy.html` and `support.html` for the App Store listing (served by GitHub Pages).
 - **Next:** Game Center, and testing on a real phone.
 
 ## App structure

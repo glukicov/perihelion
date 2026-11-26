@@ -45,6 +45,8 @@ enum Palette {
 
     static let scrim = Color(red: 4 / 255, green: 9 / 255, blue: 20 / 255)
     static let veil = Color(red: 2 / 255, green: 6 / 255, blue: 18 / 255)
+    /// Solid ink for panels that sit over the chart (the abyss tint, fully opaque).
+    static let panel = Color(red: 8 / 255, green: 26 / 255, blue: 58 / 255)
 
     static func display(_ size: Double, italic: Bool = true) -> Font {
         .custom(italic ? displayItalicName : displayRomanName, size: size)
@@ -56,5 +58,15 @@ enum Palette {
 
     static func points(_ value: Int) -> String {
         value.formatted(.number.locale(Locale(identifier: "en_GB")))
+    }
+}
+
+enum AppVersion {
+    /// "v0.3.1 (20261126.1900)", read from the bundle's marketing version and build number.
+    static var label: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "v\(version) (\(build))"
     }
 }

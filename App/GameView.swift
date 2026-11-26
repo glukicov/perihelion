@@ -320,8 +320,16 @@ private struct TitleCard: View {
                         .foregroundStyle(Palette.chalkDim)
                         .padding(.top, 10)
                 }
-                CTA(text: "Tap anywhere to begin", calm: calm)
-                    .padding(.top, 18)
+                HStack(alignment: .firstTextBaseline) {
+                    CTA(text: "Tap anywhere to begin", calm: calm)
+                    Spacer(minLength: 12)
+                    Text(AppVersion.label)
+                        .font(Palette.mono(10))
+                        .tracking(0.8)
+                        .foregroundStyle(Palette.chalkDim)
+                        .accessibilityLabel("Version \(AppVersion.label)")
+                }
+                .padding(.top, 18)
             }
             .padding(.horizontal, 22)
             .padding(.top, 76)
@@ -453,6 +461,10 @@ private struct PauseButton: View {
             .foregroundStyle(Palette.chalk)
             .frame(width: 44, height: 44)
             .overlay(Rectangle().stroke(Palette.chalkDim, lineWidth: 1))
+            // The plain button style only hits the drawn pixels (two 4 pt bars and a 1 pt
+            // border). Without a content shape, taps in the gaps fall through to the chart
+            // underneath and let go of the star instead of pausing.
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Pause")
@@ -465,8 +477,10 @@ private struct SettingsCard: View {
     var body: some View {
         let duringPlay = session.game.mode == .play
         ZStack {
-            Color.black.opacity(0.46).ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 22) {
+            // Solid, so the chart and title never show through behind the text.
+            Palette.panel.ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
                     Text("Adjustments")
                         .font(Palette.display(44))
                         .foregroundStyle(Palette.chalk)
@@ -515,7 +529,9 @@ private struct SettingsCard: View {
                         .padding(.top, 4)
                 }
                 .padding(24)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 
