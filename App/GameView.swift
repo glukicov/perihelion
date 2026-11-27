@@ -461,9 +461,11 @@ private struct PauseButton: View {
             .foregroundStyle(Palette.chalk)
             .frame(width: 44, height: 44)
             .overlay(Rectangle().stroke(Palette.chalkDim, lineWidth: 1))
-            // The plain button style only hits the drawn pixels (two 4 pt bars and a 1 pt
-            // border). Without a content shape, taps in the gaps fall through to the chart
-            // underneath and let go of the star instead of pausing.
+            // The tap target is a real, larger frame (56 pt, reaching 12 pt further left and
+            // down than the drawn square). The plain button style only hits drawn pixels, so
+            // without a content shape taps between the bars fell through to the chart, and a
+            // thumb mid-run rarely lands on the exact 44 pt square.
+            .frame(width: 56, height: 56, alignment: .topTrailing)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
