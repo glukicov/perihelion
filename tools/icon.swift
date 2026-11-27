@@ -6,7 +6,7 @@ let out = URL(fileURLWithPath: CommandLine.arguments[1])
 let space = CGColorSpaceCreateDeviceRGB()
 guard let cg = CGContext(
     data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size * 4, space: space,
-    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
 ) else { fatalError("no context") }
 
 func rgb(_ r: Double, _ g: Double, _ b: Double, _ a: Double = 1) -> CGColor {
