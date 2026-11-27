@@ -275,96 +275,24 @@ h1 {
   text-transform: uppercase;
 }
 
-.chart { width: min(100%, 420px); height: auto; display: block; }
-.chart .name {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 22px;
-  fill: var(--chalk);
-}
-
-/* The game captures Space and Enter, and its page does not scroll, so an
-   iframe would take the keyboard once focused and swallow the wheel while
-   the pointer is over it. The poster stays up until a click. */
 .stage {
   position: relative;
   min-height: clamp(480px, 72vh, 720px);
   border: 1px solid var(--line);
   border-radius: 16px;
   overflow: hidden;
-  background: #0c2148;
+  background: var(--prussian);
 }
 .game {
   position: absolute;
   inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
   border: 0;
+  overflow: hidden;
   background: var(--prussian);
 }
-.poster {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 16px 16px 20px;
-  color: var(--chalk);
-  text-decoration: none;
-}
-.poster .chart { pointer-events: none; }
-.poster-label {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  min-height: 52px;
-  margin-top: 8px;
-  padding: 0 22px;
-  border-radius: 2px;
-  background: var(--comet);
-  color: var(--abyss);
-  font-family: var(--mono);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.poster-note {
-  position: relative;
-  z-index: 1;
-  max-width: 28em;
-  margin: 0;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  line-height: 1.45;
-  text-align: center;
-  text-transform: uppercase;
-}
-.close-game {
-  min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--chalk);
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  text-decoration: underline;
-  text-underline-offset: 5px;
-  cursor: pointer;
-}
-.close-game:hover { color: var(--comet); }
-[hidden] { display: none !important; }
 
 .section {
   margin-top: 36px;
@@ -485,17 +413,12 @@ footer nav a {
 }
 
 @media (max-width: 899px) {
-  .stage { min-height: 420px; }
-  .poster { justify-content: flex-start; }
-  .poster-label { order: -1; margin-top: 4px; }
-  .poster-note { order: -1; }
-  .poster .chart { width: min(92%, 340px); margin-top: 8px; }
+  .stage { min-height: 520px; }
 }
 @media (max-width: 560px) {
   .play { width: 100%; }
   .actions { align-items: stretch; }
   .also { padding: 8px 0; }
-  .poster-label { width: 100%; }
 }
 @media (min-width: 720px) {
   .features { grid-template-columns: 1fr 1fr; }
@@ -549,65 +472,10 @@ footer nav a {
         <div class="actions">
           <a class="play" href="web/perihelion-2d.html"><span class="dot" aria-hidden="true"></span>Play in your browser</a>
           <p class="also"><a href="web/perihelion-3d.html">Play the 3D version</a></p>
-          <button type="button" class="close-game" id="close-game" hidden>Close game</button>
         </div>
       </div>
       <div class="stage" id="play">
-        <iframe class="game" id="game" title="Perihelion" hidden tabindex="-1"></iframe>
-        <a class="poster" id="play-poster" href="web/perihelion-2d.html">
-          <svg class="chart" viewBox="40 80 540 400" aria-hidden="true">
-            <g fill="#edf2f4">
-              <rect x="78" y="168" width="2" height="2" opacity=".55"/>
-              <rect x="132" y="128" width="2" height="2" opacity=".4"/>
-              <rect x="168" y="214" width="1.5" height="1.5" opacity=".45"/>
-              <rect x="196" y="430" width="2" height="2" opacity=".35"/>
-              <rect x="390" y="128" width="2" height="2" opacity=".5"/>
-              <rect x="438" y="112" width="1.5" height="1.5" opacity=".4"/>
-              <rect x="530" y="150" width="2" height="2" opacity=".55"/>
-              <rect x="548" y="300" width="2" height="2" opacity=".35"/>
-              <rect x="430" y="390" width="2" height="2" opacity=".4"/>
-              <rect x="360" y="430" width="1.5" height="1.5" opacity=".3"/>
-            </g>
-            <circle cx="250" cy="300" r="154" fill="none" stroke="#edf2f4" stroke-opacity=".72" stroke-width="2.4" stroke-dasharray="1.6 8" stroke-linecap="round"/>
-            <circle cx="260.7" cy="453.6" r="2.2" fill="#f4c95d" opacity=".28"/>
-            <circle cx="223.3" cy="451.7" r="2.9" fill="#f4c95d" opacity=".45"/>
-            <circle cx="187.4" cy="440.7" r="3.5" fill="#f4c95d" opacity=".62"/>
-            <circle cx="155.2" cy="421.4" r="4.2" fill="#f4c95d" opacity=".82"/>
-            <path d="M 125.4 390.5 L 122.3 386.1 L 119.4 381.6 L 116.6 377.0 L 114.0 372.3 L 111.6 367.5 L 109.3 362.6 L 107.2 357.7 L 105.3 352.7 L 103.5 347.6 L 102.0 342.4 L 100.6 337.3 L 99.4 332.0 L 98.3 326.7 L 97.5 321.4 L 96.8 316.1 L 96.4 310.7 L 96.1 305.4 L 96.0 300.0 L 96.1 294.6 L 96.4 289.3 L 96.8 283.9 L 97.5 278.6 L 98.3 273.3 L 99.4 268.0 L 100.6 262.7 L 102.0 257.6 L 103.5 252.4 L 105.3 247.3 L 107.2 242.3 L 109.3 237.4 L 111.6 232.5 L 114.0 227.7 L 116.6 223.0 L 119.4 218.4 L 122.3 213.9 L 125.4 209.5 L 128.6 205.2 L 132.0 201.0 L 135.6 197.0 L 139.2 193.0 L 143.0 189.2 L 147.0 185.6 L 151.0 182.0 L 155.2 178.6 L 159.5 175.4 L 163.9 172.3 L 168.4 169.4 L 173.0 166.6 L 177.7 164.0 L 182.5 161.6 L 187.4 159.3 L 192.3 157.2 L 197.3 155.3 L 202.4 153.5 L 207.6 152.0 L 212.7 150.6 L 218.0 149.4 L 223.3 148.3 L 228.6 147.5 L 233.9 146.8 L 239.3 146.4 L 244.6 146.1 L 250.0 146.0 L 255.4 146.1 L 260.7 146.4 L 266.1 146.8 L 271.4 147.5 L 276.7 148.3 L 282.0 149.4 L 287.3 150.6 L 292.4 152.0 L 297.6 153.5 L 302.7 155.3" fill="none" stroke="#f4c95d" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-            <defs>
-              <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#f4c95d" stop-opacity=".9"/>
-                <stop offset="42%" stop-color="#f4c95d" stop-opacity=".28"/>
-                <stop offset="100%" stop-color="#f4c95d" stop-opacity="0"/>
-              </radialGradient>
-            </defs>
-            <circle cx="302.7" cy="155.3" r="48" fill="url(#glow)"/>
-            <circle cx="302.7" cy="155.3" r="11" fill="#f4c95d"/>
-            <circle cx="302.7" cy="155.3" r="4.5" fill="#edf2f4"/>
-            <g fill="#edf2f4">
-              <circle cx="323.4" cy="162.8" r="1.8" opacity=".85"/>
-              <circle cx="336.5" cy="167.6" r="1.8" opacity=".8"/>
-              <circle cx="349.7" cy="172.4" r="1.8" opacity=".75"/>
-              <circle cx="362.8" cy="177.2" r="1.8" opacity=".7"/>
-              <circle cx="376.0" cy="182.0" r="1.8" opacity=".65"/>
-              <circle cx="389.2" cy="186.8" r="1.8" opacity=".6"/>
-              <circle cx="402.3" cy="191.6" r="1.7" opacity=".55"/>
-              <circle cx="415.5" cy="196.3" r="1.7" opacity=".5"/>
-              <circle cx="428.6" cy="201.1" r="1.6" opacity=".45"/>
-            </g>
-            <circle cx="489" cy="223" r="40" fill="none" stroke="#a9dcff" stroke-opacity=".8" stroke-width="1.4" stroke-dasharray="1.4 5.5" stroke-linecap="round"/>
-            <path fill="#a9dcff" transform="translate(489 223)" d="M0-14 1.6-1.6 14 0 1.6 1.6 0 14-1.6 1.6-14 0-1.6-1.6Z"/>
-            <text class="name" x="208" y="306" text-anchor="end">Sol</text>
-            <g fill="none" stroke="#edf2f4" stroke-width="2.2">
-              <circle cx="250" cy="300" r="26"/>
-              <circle cx="250" cy="300" r="13"/>
-            </g>
-            <circle cx="250" cy="300" r="4.2" fill="#edf2f4"/>
-            <text class="name" x="489" y="284" text-anchor="middle">Sirius</text>
-          </svg>
-          <span class="poster-label"><span class="dot" aria-hidden="true"></span>Click to play</span>
-          <span class="poster-note">Then tap, or press Space, to let go.</span>
-        </a>
+        <iframe class="game" id="game" title="Perihelion, ready to play. A comet circles Sol. Tap or press Space to let go of your star." src="web/perihelion-2d.html" loading="eager" scrolling="no"></iframe>
       </div>
       <div class="hero-foot">
         <ul class="key">
@@ -708,35 +576,5 @@ footer nav a {
       </footer>
     </div>
 </div>
-<script>
-(function () {
-  var poster = document.getElementById("play-poster");
-  var frame = document.getElementById("game");
-  var close = document.getElementById("close-game");
-  if (!poster || !frame || !close) return;
-
-  poster.addEventListener("click", function (event) {
-    event.preventDefault();
-    frame.src = "web/perihelion-2d.html";
-    frame.hidden = false;
-    frame.tabIndex = 0;
-    poster.hidden = true;
-    close.hidden = false;
-    frame.addEventListener("load", function onLoad() {
-      frame.removeEventListener("load", onLoad);
-      try { frame.contentWindow.focus(); } catch (err) {}
-    });
-  });
-
-  close.addEventListener("click", function () {
-    frame.src = "about:blank";
-    frame.hidden = true;
-    frame.tabIndex = -1;
-    poster.hidden = false;
-    close.hidden = true;
-    poster.focus();
-  });
-})();
-</script>
 </body>
 </html>
