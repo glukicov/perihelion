@@ -1,0 +1,22 @@
+# GitHub Pages builds this repository with legacy Jekyll from the main branch
+# root. index.html has no front matter, so it is copied unchanged and served
+# at /. README.md is the GitHub project page; excluding it keeps Jekyll from
+# rendering it as the homepage or as a page of unparsed markdown.
+exclude:
+  - README.md
+  - CNAME
+  - Gemfile
+  - Gemfile.lock
+  - gemfiles
+  - node_modules
+  - vendor
+  - vendor/bundle
+  - vendor/cache
+  - vendor/gems
+  - vendor/ruby
+  - .bundle
+  - .sass-cache
+  - .jekyll-cache
+
+readme_index:
+  enabled: false
